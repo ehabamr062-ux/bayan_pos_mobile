@@ -16,7 +16,7 @@
 
     <!-- خط القاهرة والأيقونات -->
     <link rel="stylesheet" href="fonts/cairo.css">
-    <link rel="stylesheet" href="css/mobile_fashion.css?v=5.1.27">
+    <link rel="stylesheet" href="css/mobile_fashion.css?v=5.1.28">
     <style id="mobile-fashion-android-overhaul"></style>
     <script>
         // إعداد الوضع الفاتح كالوضع الافتراضي الفوري
@@ -572,7 +572,7 @@
                             style="background: rgba(100, 116, 139, 0.15); color: var(--text-dim);">ℹ️</div>
                         <div class="settings-item-content">
                             <div class="settings-item-title">معلومات النظام والدعم الفني</div>
-                            <div class="settings-item-subtitle">الإصدار v5.1.27 • واتساب المساعدة</div>
+                            <div class="settings-item-subtitle">الإصدار v5.1.28 • واتساب المساعدة</div>
                         </div>
                         <div class="settings-item-arrow">‹</div>
                     </div>
@@ -1673,11 +1673,25 @@
         </div>
     </div>
 
-    <script src="js/mobile_fashion.js?v=5.1.27"></script>
+    <script src="js/mobile_fashion.js?v=5.1.28"></script>
+    <!-- نافذة تثبيت التطبيق التلقائية (PWA Install Prompt) -->
+    <div id="pwaInstallBannerModal" style="display: none;">
+        <div class="pwa-install-card">
+            <img src="assets/icon-192.png" alt="بيان POS" class="pwa-install-icon">
+            <h3 class="pwa-install-title">تثبيت تطبيق بَيَان POS</h3>
+            <p id="pwaInstallDesc" class="pwa-install-desc">أضف التطبيق إلى شاشتك الرئيسية للفتح السريع والعمل بدون إنترنت</p>
+            <div class="pwa-install-actions">
+                <button id="btnConfirmPwaInstall" type="button" class="pwa-btn-install">تثبيت التطبيق</button>
+                <button id="btnDismissPwaInstall" type="button" class="pwa-btn-later">لاحقاً</button>
+            </div>
+        </div>
+    </div>
+
     <script>if ('serviceWorker' in navigator) { window.addEventListener('load', () => navigator.serviceWorker.register('./service-worker.js').catch(() => {})); }</script>
 </body>
 
 </html>
+
 
 
 

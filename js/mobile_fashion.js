@@ -2361,7 +2361,53 @@
                         enqueueOfflineItem(queueItem);
                         showToast(`💾 الفاتورة #${invoiceId} محفوظة محلياً وفي طابور المزامنة التلقائية ⚡`, 'info');
                     }
-                })();
+                    function initPwaInstallPrompt() {
+        const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+        if (isStandalone || sessionStorage.getItem('bayan_pwa_dismissed') === '1') return;
+
+        const modal = document.getElementById('pwaInstallBannerModal');
+        const descEl = document.getElementById('pwaInstallDesc');
+        const btnInstall = document.getElementById('btnConfirmPwaInstall');
+        const btnLater = document.getElementById('btnDismissPwaInstall');
+        if (!modal || !btnInstall || !btnLater) return;
+
+        let deferredPrompt = null;
+        const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+        const showBanner = () => {
+            if (sessionStorage.getItem('bayan_pwa_dismissed') === '1') return;
+            modal.style.display = 'block';
+        };
+
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            setTimeout(showBanner, 1200);
+        });
+
+        if (isIOS) {
+            setTimeout(showBanner, 1200);
+        }
+
+        btnLater.onclick = () => {
+            modal.style.display = 'none';
+            sessionStorage.setItem('bayan_pwa_dismissed', '1');
+        };
+
+        btnInstall.onclick = async () => {
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                try { await deferredPrompt.userChoice; } catch (_) {}
+                deferredPrompt = null;
+                modal.style.display = 'none';
+            } else if (isIOS && descEl) {
+                descEl.innerHTML = '1️⃣ اضغط على زر <b>المشاركة (Share ⬆️)</b> في شريط المتصفح بالأسفل.<br>2️⃣ اختر <b>"إضافة إلى الصفحة الرئيسية" (Add to Home Screen)</b>.';
+            }
+        };
+    }
+
+    initPwaInstallPrompt();
+})();
             }
 
         } catch (e) {

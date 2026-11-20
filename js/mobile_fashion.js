@@ -864,6 +864,14 @@
         return parseDateToISO(t.date || t.date_iso || t.createdAt || t.created_at || t.timestamp) || '';
     }
 
+    function getLocalDateStr(val) {
+        if (!val) return getTodayISO();
+        if (typeof val === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(val.trim())) return val.trim();
+        const d = new Date(val);
+        if (isNaN(d.getTime())) return getTodayISO();
+        return formatDateISO(d);
+    }
+
     function getTodayISO() {
         const now = new Date();
         const y = now.getFullYear();
@@ -976,6 +984,7 @@
         const endISO = range.end;
 
         State.transactions.forEach(t => {
+            if (!t || t.isDeleted || t.status === 'deleted') return;
             const amt = parseFloat(t.paidAmount !== undefined ? t.paidAmount : (t.paid !== undefined ? t.paid : (t.invoiceGrandTotal || t.total || 0))) || 0;
             const isHead = (t.isInvoiceHead === true || t.isInvoiceHead === undefined || t.isInvoiceHead === null || t.isInvoiceHead === 1 || t.isInvoiceHead === '1');
             const rawMethod = String(t.method || t.paymentMethod || '');
@@ -3782,7 +3791,17 @@
         if (posWhBadge) posWhBadge.textContent = `📦 ${currentWh}`;
 
         if (whSelectEl) {
-            const list = (Array.isArray(State.warehouses) && State.warehouses.length > 0) ? State.warehouses : ['المخزن الرئيسي'];
+            const whSet = new Set(Array.isArray(State.warehouses) ? State.warehouses : ['المخزن الرئيسي']);
+            if (Array.isArray(State.products)) {
+                State.products.forEach(p => {
+                    if (p && p.warehouseStocks && typeof p.warehouseStocks === 'object') {
+                        Object.keys(p.warehouseStocks).forEach(k => { if (k && k.trim()) whSet.add(k.trim()); });
+                    }
+                });
+            }
+            if (whSet.size === 0) whSet.add('المخزن الرئيسي');
+            const list = Array.from(whSet);
+            State.warehouses = list;
             whSelectEl.innerHTML = list.map(w => `
                 <option value="${w}">${w} 🏬</option>
             `).join('');

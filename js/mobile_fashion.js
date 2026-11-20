@@ -198,29 +198,39 @@
     // 🛡️ حفظ الأصناف محلياً بأمان مع حماية المتصفح من انهيار السعة (QuotaExceededError Protection)
     function safelyPersistProducts(productsList) {
         window.allProducts = productsList;
-        try {
-            localStorage.setItem(CONFIG.STORAGE_PREFIX + 'products', JSON.stringify(productsList));
-        } catch (storageErr) {
-            const isQuota = storageErr && (
-                storageErr.name === 'QuotaExceededError' ||
-                storageErr.name === 'NS_ERROR_DOM_QUOTA_REACHED' ||
-                storageErr.code === 22 ||
-                storageErr.code === 1014 ||
-                String(storageErr.message || '').toLowerCase().includes('quota')
-            );
-            if (isQuota) {
-                console.warn('⚠️ [StorageQuota] Products catalog exceeds localStorage quota. Retaining full catalog in window.allProducts and RAM.');
-                try {
-                    // الاحتفاظ بأول 500 صنف فقط للأوفلاين تفادياً لضياع كامل البيانات
-                    if (Array.isArray(productsList) && productsList.length > 500) {
-                        localStorage.setItem(CONFIG.STORAGE_PREFIX + 'products', JSON.stringify(productsList.slice(0, 500)));
-                    }
-                } catch (subErr) { }
-                showToast('⚡ حجم الأصناف كبير، تم حفظ الكتالوج كاملاً في الذاكرة السريعة دون استهلاك مساحة الهاتف', 'info');
-            } else {
-                console.warn('[Storage] Product save error:', storageErr);
-            }
+        if (window.BayanIDB && typeof window.BayanIDB.idbSet === 'function') {
+            window.BayanIDB.idbSet('products', productsList || []);
         }
+    }
+
+    function persistInvoicesToIDB(txList) {
+        if (window.BayanIDB && typeof window.BayanIDB.idbSet === 'function') {
+            window.BayanIDB.idbSet('invoices', txList || []);
+        }
+    }
+
+    function persistCustomersToIDB(custList, accList) {
+        if (window.BayanIDB && typeof window.BayanIDB.idbSet === 'function') {
+            if (custList) window.BayanIDB.idbSet('customers', custList, 'data');
+            if (accList) window.BayanIDB.idbSet('customers', accList, 'accounts');
+        }
+    }
+
+    async function hydrateStateFromIDB() {
+        if (!window.BayanIDB) return;
+        await window.BayanIDB.migrateFromLocalStorage();
+        const [p, inv, cust, acc, logo] = await Promise.all([
+            window.BayanIDB.idbGet('products', 'data'),
+            window.BayanIDB.idbGet('invoices', 'data'),
+            window.BayanIDB.idbGet('customers', 'data'),
+            window.BayanIDB.idbGet('customers', 'accounts'),
+            window.BayanIDB.idbGet('settings', 'shopLogo')
+        ]);
+        if (Array.isArray(p) && p.length > 0 && State.products.length === 0) State.products = p;
+        if (Array.isArray(inv) && inv.length > 0 && State.transactions.length === 0) State.transactions = inv;
+        if (Array.isArray(cust) && cust.length > 0 && State.customers.length === 0) State.customers = cust;
+        if (Array.isArray(acc) && acc.length > 0 && State.accounts.length === 0) State.accounts = acc;
+        if (logo && State.settings) State.settings.shop_logo = logo;
     }
 
     async function checkServerInfo() {
@@ -473,7 +483,10 @@
         if (footer) curSettings.receipt_footer = footer;
         if (taxRate !== undefined && !isNaN(taxRate)) curSettings.tax_rate = taxRate;
         if (currency) curSettings.currency = currency;
-        if (shopLogo) curSettings.shop_logo = shopLogo;
+        if (shopLogo) {
+            curSettings.shop_logo = shopLogo;
+            if (window.BayanIDB) window.BayanIDB.idbSet('settings', shopLogo, 'shopLogo');
+        }
         State.settings = Object.assign({}, State.settings || {}, curSettings);
         if (Array.isArray(data.paymentMethods)) {
             State.paymentMethods = data.paymentMethods;

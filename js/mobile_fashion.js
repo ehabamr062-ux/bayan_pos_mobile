@@ -2391,12 +2391,9 @@
         window.addEventListener('beforeinstallprompt', (e) => {
             e.preventDefault();
             deferredPrompt = e;
-            setTimeout(showBanner, 1200);
         });
 
-        if (isIOS) {
-            setTimeout(showBanner, 1200);
-        }
+        setTimeout(showBanner, 800);
 
         btnLater.onclick = () => {
             modal.style.display = 'none';
@@ -2409,8 +2406,10 @@
                 try { await deferredPrompt.userChoice; } catch (_) {}
                 deferredPrompt = null;
                 modal.style.display = 'none';
-            } else if (isIOS && descEl) {
-                descEl.innerHTML = '1️⃣ اضغط على زر <b>المشاركة (Share ⬆️)</b> في شريط المتصفح بالأسفل.<br>2️⃣ اختر <b>"إضافة إلى الصفحة الرئيسية" (Add to Home Screen)</b>.';
+            } else if (descEl) {
+                descEl.innerHTML = isIOS
+                    ? '1️⃣ اضغط على زر <b>المشاركة (Share ⬆️)</b> في شريط Safari بالأسفل.<br>2️⃣ اختر <b>"إضافة إلى الصفحة الرئيسية" (Add to Home Screen)</b>.'
+                    : '1️⃣ افتح القائمة <b>(⋮)</b> في أعلى المتصفح (Chrome / Edge).<br>2️⃣ اختر <b>"تثبيت التطبيق" (Install App / Add to Home Screen)</b>.';
             }
         };
     }
@@ -2431,16 +2430,14 @@
         } catch (_) {
             shopId = String(rawText).trim();
         }
-        if (!shopId) {
-            await openModernAlert('الباركود لا يحتوي على كود محل صالح.', 'تنبيه');
+        if (!shopId || !password) {
+            await openModernAlert('يرجى إدخال كود المحل وكود الاقتران معاً أو مسح QR Code.', 'تحقق أمني');
             return;
         }
         const inp = document.getElementById('settingShopIdInput');
         if (inp) inp.value = shopId;
-        if (password && typeof verifyAndPairDevice === 'function') {
+        if (typeof verifyAndPairDevice === 'function') {
             await verifyAndPairDevice(shopId, password);
-        } else {
-            await saveShopBranch();
         }
         await openModernAlert(`تم قراءة كود الربط (${shopId}) وتفعيل المزامنة السحابية بنجاح!`, '✅ تم الربط بالباركود');
     }

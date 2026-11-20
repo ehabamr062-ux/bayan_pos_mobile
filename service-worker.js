@@ -5,6 +5,7 @@ const STATIC_ASSETS = [
   './manifest.json',
   './version.json',
   './css/mobile_fashion.css',
+  './js/idb_store.js',
   './js/mobile_fashion.js',
   './fonts/cairo.css',
   './lib/html2canvas.min.js',

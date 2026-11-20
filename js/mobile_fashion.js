@@ -1,4 +1,4 @@
-/**
+﻿/**
  * ============================================================
  * 👗 BAYAN POS FASHION - MOBILE & LIVE DASHBOARD LOGIC
  * High-Performance, Standalone Client Engine (<20KB Zero Lag)
@@ -2455,7 +2455,7 @@
                             _qrCamStream = null;
                         }
                         const ov = document.getElementById('qrScannerModalOverlay');
-                        if (ov) { ov.classList.remove('active'); ov.style.display = 'none'; }
+                        if (ov) { ov.classList.remove('active'); ov.style.setProperty('display', 'none', 'important'); }
                         if (_wasPinModalOpen) {
                             _wasPinModalOpen = false;
                             const pinOv = document.getElementById('pinModalOverlay');
@@ -2472,15 +2472,14 @@
                         if (pinOv && pinOv.classList.contains('active')) {
                             _wasPinModalOpen = true;
                             pinOv.classList.remove('active');
-                            pinOv.style.display = 'none';
+                            pinov.style.setProperty('display', 'none', 'important');
                         }
                         if (ov) {
-                            ov.style.display = 'flex';
-                            ov.style.zIndex = '999999';
+                            ov.style.setProperty('display', 'flex', 'important'); ov.style.setProperty('position', 'fixed', 'important'); ov.style.setProperty('inset', '0', 'important'); ov.style.setProperty('z-index', '2147483647', 'important'); ov.style.setProperty('opacity', '1', 'important'); ov.style.setProperty('pointer-events', 'auto', 'important');
                             ov.classList.add('active');
                         }
                         if (statusEl) { statusEl.textContent = 'جاري تشغيل الكاميرا...'; statusEl.style.color = 'var(--primary)'; }
-                        if (fallbackBox) fallbackBox.style.display = 'none';
+                        if (fallbackBox) fallbackBox.style.display = 'flex';
 
                         if (!ov || !video || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
                             if (statusEl) { statusEl.textContent = '⚠️ الكاميرا المباشرة محظورة أو غير مدعومة في هذا المتصفح. استخدم الأزرار بالأسفل:'; statusEl.style.color = 'var(--rose)'; }
@@ -5983,4 +5982,6 @@ ${footer || 'شكراً لتعاملكم الراقي معنا! ✨'}`;
     }
 
 })(window, document);
+
+
 

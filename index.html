@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="ar" dir="rtl">
 
 <head>
@@ -16,7 +16,7 @@
 
     <!-- خط القاهرة والأيقونات -->
     <link rel="stylesheet" href="fonts/cairo.css">
-    <link rel="stylesheet" href="css/mobile_fashion.css?v=5.1.38">
+    <link rel="stylesheet" href="css/mobile_fashion.css?v=5.1.39">
     <style id="mobile-fashion-android-overhaul"></style>
     <script>
         // إعداد الوضع الفاتح كالوضع الافتراضي الفوري
@@ -562,7 +562,7 @@
                             style="background: rgba(100, 116, 139, 0.15); color: var(--text-dim);">ℹ️</div>
                         <div class="settings-item-content">
                             <div class="settings-item-title">معلومات النظام والدعم الفني</div>
-                            <div class="settings-item-subtitle">الإصدار v5.1.38 • واتساب المساعدة</div>
+                            <div class="settings-item-subtitle">الإصدار v5.1.39 • واتساب المساعدة</div>
                         </div>
                         <div class="settings-item-arrow">‹</div>
                     </div>
@@ -1675,7 +1675,7 @@
         </div>
     </div>
 
-    <script src="js/mobile_fashion.js?v=5.1.38"></script>
+    <script src="js/mobile_fashion.js?v=5.1.39"></script>
     <!-- نافذة تثبيت التطبيق التلقائية (PWA Install Prompt) -->
     <div id="pwaInstallBannerModal" style="display: none;">
         <div class="pwa-install-card">
@@ -1698,9 +1698,9 @@
                 <video id="qrScannerVideo" autoplay playsinline muted style="width: 100%; min-height: 260px; max-height: 300px; object-fit: cover; display: block; background: #000;"></video>
                 <div style="position: absolute; inset: 18%; border: 2.5px solid #10b981; border-radius: 12px; pointer-events: none; box-shadow: 0 0 0 9999px rgba(0,0,0,0.35);"></div>
             </div>
-            <div id="qrScannerFallbackBox" style="display: none; flex-direction: column; gap: 8px; margin-bottom: 10px;">
+            <div id="qrScannerFallbackBox" style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px;">
                 <input type="file" id="qrNativeCameraInput" accept="image/*" capture="environment" hidden onchange="window.BayanMobile.closeQrCameraScanner(); window.BayanMobile.handleQrImageUpload(this)">
-                <button type="button" onclick="document.getElementById('qrNativeCameraInput').click()" style="width: 100%; height: 42px; border-radius: 12px; border: none; background: linear-gradient(135deg, #047857, #059669); color: #ffffff; font-weight: 800; cursor: pointer;">📸 التقاط صورة بالكاميرا مباشرة</button>
+                <button type="button" onclick="document.getElementById('qrNativeCameraInput').click()" style="width: 100%; height: 42px; border-radius: 12px; border: none; background: linear-gradient(135deg, #047857, #059669); color: #ffffff; font-weight: 800; cursor: pointer;">📸 التقاط صورة بالكاميرا (بديل فوري)</button>
                 <button type="button" onclick="window.BayanMobile.closeQrCameraScanner(); document.getElementById('pinQrImageFileInput').click()" style="width: 100%; height: 42px; border-radius: 12px; border: 1.5px solid var(--border-subtle); background: var(--chip-bg); color: var(--text-main); font-weight: 800; cursor: pointer;">🖼️ اختيار صورة من الاستوديو</button>
             </div>
             <button type="button" onclick="window.BayanMobile.closeQrCameraScanner()" style="width: 100%; height: 42px; border-radius: 12px; background: var(--chip-bg); color: var(--text-main); border: 1.5px solid var(--border-subtle); font-weight: 800; cursor: pointer;">إغلاق الكاميرا</button>
@@ -1708,10 +1708,70 @@
     </div>
 
     <script src="lib/jsQR.min.js"></script>
+    <script>
+        (function(){
+            let _qrStream = null, _qrRaf = null, _wasPin = false;
+            window.closeQrCameraScanner = function() {
+                if (_qrRaf) { cancelAnimationFrame(_qrRaf); _qrRaf = null; }
+                if (_qrStream) { _qrStream.getTracks().forEach(t => t.stop()); _qrStream = null; }
+                const ov = document.getElementById('qrScannerModalOverlay');
+                if (ov) { ov.classList.remove('active'); ov.style.setProperty('display', 'none', 'important'); }
+                if (_wasPin) { _wasPin = false; const p = document.getElementById('pinModalOverlay'); if (p) { p.style.display = 'flex'; p.classList.add('active'); } }
+            };
+            window.openQrCameraScanner = async function() {
+                const ov = document.getElementById('qrScannerModalOverlay');
+                const video = document.getElementById('qrScannerVideo');
+                const statusEl = document.getElementById('qrScannerStatusText');
+                const pinOv = document.getElementById('pinModalOverlay');
+                if (pinOv && pinOv.classList.contains('active')) { _wasPin = true; pinOv.classList.remove('active'); pinOv.style.display = 'none'; }
+                if (ov) {
+                    ov.style.setProperty('display', 'flex', 'important');
+                    ov.style.setProperty('position', 'fixed', 'important');
+                    ov.style.setProperty('inset', '0', 'important');
+                    ov.style.setProperty('z-index', '2147483647', 'important');
+                    ov.style.setProperty('opacity', '1', 'important');
+                    ov.style.setProperty('pointer-events', 'auto', 'important');
+                    ov.classList.add('active');
+                }
+                if (statusEl) { statusEl.textContent = 'جاري تشغيل الكاميرا...'; statusEl.style.color = 'var(--primary)'; }
+                if (!video || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                    if (statusEl) { statusEl.textContent = '⚠️ الكاميرا المباشرة محظورة أو غير مدعومة. استخدم الأزرار بالأسفل:'; statusEl.style.color = 'var(--rose)'; }
+                    return;
+                }
+                try {
+                    try { _qrStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false }); }
+                    catch (_) { _qrStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false }); }
+                    video.srcObject = _qrStream;
+                    try { await video.play(); } catch (_) {}
+                    if (statusEl) statusEl.textContent = '📷 وجّه الكاميرا نحو QR Code للمسح التلقائي';
+                    const canvas = document.createElement('canvas'), ctx = canvas.getContext('2d', { willReadFrequently: true });
+                    const tick = () => {
+                        if (!_qrStream) return;
+                        if (video.readyState === video.HAVE_ENOUGH_DATA && typeof jsQR === 'function') {
+                            canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+                            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                            const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                            const code = jsQR(imgData.data, imgData.width, imgData.height);
+                            if (code && code.data) { window.closeQrCameraScanner(); if (window.BayanMobile?.applyScannedSyncPayload) window.BayanMobile.applyScannedSyncPayload(code.data); return; }
+                        }
+                        _qrRaf = requestAnimationFrame(tick);
+                    };
+                    _qrRaf = requestAnimationFrame(tick);
+                } catch (err) {
+                    if (statusEl) { statusEl.textContent = '⚠️ تعذر فتح الكاميرا المباشرة (' + (err?.name || 'إذن مرفوض') + '). استخدم الأزرار بالأسفل:'; statusEl.style.color = 'var(--rose)'; }
+                }
+            };
+            if (window.BayanMobile) {
+                window.BayanMobile.openQrCameraScanner = window.openQrCameraScanner;
+                window.BayanMobile.closeQrCameraScanner = window.closeQrCameraScanner;
+            }
+        })();
+    </script>
     <script>if ('serviceWorker' in navigator) { window.addEventListener('load', () => navigator.serviceWorker.register('./service-worker.js').catch(() => {})); }</script>
 </body>
 
 </html>
+
 
 
 

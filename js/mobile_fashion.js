@@ -3958,7 +3958,37 @@ ${footer || 'شكراً لتعاملكم الراقي معنا! ✨'}`;
         const whSelectEl = document.getElementById('settingWarehouseSelect');
 
         const raw = inpEl ? inpEl.value.trim() : '';
-        const cleanId = raw ? raw.replace(/\s+/g, '_') : (State.shopId || 'SHOP_DEFAULT');
+        if (!raw) {
+            // فصل المزامنة السحابية وتصفير كافة البيانات المحلية بالكامل
+            if (State.pollTimer) { clearInterval(State.pollTimer); State.pollTimer = null; }
+            State.isConnected = false;
+            State.shopId = '';
+            CONFIG.SHOP_ID = '';
+            State.shopName = 'بَيَان فاشون';
+            State.activeWarehouse = 'المخزن الرئيسي';
+            State.warehouses = ['المخزن الرئيسي'];
+            State.products = [];
+            State.transactions = [];
+            State.vouchers = [];
+            State.customers = [];
+            State.accounts = [];
+            State.cart = [];
+            State.settings = {};
+            Object.keys(localStorage).forEach(k => {
+                if (k.startsWith(CONFIG.STORAGE_PREFIX) || k.startsWith('bayan_mob_')) {
+                    localStorage.removeItem(k);
+                }
+            });
+            try { indexedDB.deleteDatabase('bayan_mobile_db'); } catch (_) {}
+            renderSettingsView();
+            renderProducts();
+            renderCartView();
+            renderAccountsView();
+            renderDashboard();
+            await openModernAlert('تم فصل المزامنة السحابية وتصفير كافة البيانات المحلية بالكامل.', 'تم الفصل والتصفير');
+            return;
+        }
+        const cleanId = raw.replace(/\s+/g, '_');
         const chosenWh = whSelectEl ? whSelectEl.value : (State.activeWarehouse || 'المخزن الرئيسي');
 
         State.shopId = cleanId;
@@ -5125,7 +5155,12 @@ ${footer || 'شكراً لتعاملكم الراقي معنا! ✨'}`;
             return;
         }
 
-        listEl.innerHTML = filtered.map(a => {
+        const accLimit = State.accountsRenderLimit || 40;
+        const visibleAccs = filtered.slice(0, accLimit);
+        const loadMoreBtn = filtered.length > accLimit
+            ? `<button type="button" class="btn-complete-invoice" style="margin-top: 10px; background: var(--chip-bg); color: var(--text-main); border: 1.5px solid var(--border-subtle);" onclick="window.BayanMobile.loadMoreAccounts()">عرض المزيد (${filtered.length - accLimit} متبقي)</button>`
+            : '';
+        listEl.innerHTML = visibleAccs.map(a => {
             const rawType = String(a.type || '').toLowerCase();
             const isSupp = (rawType === 'supplier' || rawType.includes('مورد') || String(a.typeLabel || '').includes('مورد'));
             const bal = parseFloat(a.balance) || 0;
@@ -5721,6 +5756,7 @@ ${footer || 'شكراً لتعاملكم الراقي معنا! ✨'}`;
         setTxTypeFilter,
         classifyTransaction,
         renderAccountsView,
+        loadMoreAccounts: () => { State.accountsRenderLimit = (State.accountsRenderLimit || 40) + 40; renderAccountsView(); },
         setAccountFilter,
         onAccountSearchInput,
         clearAccountSearch,

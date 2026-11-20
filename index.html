@@ -16,7 +16,7 @@
 
     <!-- خط القاهرة والأيقونات -->
     <link rel="stylesheet" href="fonts/cairo.css">
-    <link rel="stylesheet" href="css/mobile_fashion.css?v=5.1.39">
+    <link rel="stylesheet" href="css/mobile_fashion.css?v=5.1.40">
     <style id="mobile-fashion-android-overhaul"></style>
     <script>
         // إعداد الوضع الفاتح كالوضع الافتراضي الفوري
@@ -45,7 +45,7 @@
             } catch (e) { }
         })();
     </script>
-        <link rel="icon" type="image/png" sizes="192x192" href="assets/icon-192.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="assets/icon-192.png">
     <link rel="apple-touch-icon" sizes="180x180" href="assets/apple-touch-icon.png">
     <meta name="mobile-web-app-capable" content="yes">
     <link rel="manifest" href="manifest.json">
@@ -342,6 +342,24 @@
                 <div style="font-size: 0.85rem; font-weight: 900; color: var(--text-main); margin-bottom: 8px;">💳 وسيلة
                     الدفع:
                 </div>
+                <div class="pay-methods-grid">
+                    <div class="pay-btn-radio active" data-method="cash">
+                        <div class="pay-icon">💵</div>
+                        <div class="pay-name">نقدي (كاش)</div>
+                    </div>
+                    <div class="pay-btn-radio" data-method="vodafone">
+                        <div class="pay-icon">📱</div>
+                        <div class="pay-name">فودافون كاش</div>
+                    </div>
+                    <div class="pay-btn-radio" data-method="card">
+                        <div class="pay-icon">💳</div>
+                        <div class="pay-name">فيزا / شبكة</div>
+                    </div>
+                    <div class="pay-btn-radio" data-method="credit">
+                        <div class="pay-icon">⏳</div>
+                        <div class="pay-name">أجل / سداد جزئي</div>
+                    </div>
+                </div>
                 <select id="posPaymentMethodSelect" onchange="window.BayanMobile.onPosPayMethodChange(this.value)"
                     style="width: 100%; height: 46px; padding: 0 14px; border-radius: 12px; font-size: 15px; font-weight: 700; border: 1.5px solid var(--border-strong); background: var(--input-bg); color: var(--text-main); margin-bottom: 10px; outline: none; cursor: pointer;">
                     <option value="cash" selected>💵 نقدي (كاش)</option>
@@ -562,7 +580,7 @@
                             style="background: rgba(100, 116, 139, 0.15); color: var(--text-dim);">ℹ️</div>
                         <div class="settings-item-content">
                             <div class="settings-item-title">معلومات النظام والدعم الفني</div>
-                            <div class="settings-item-subtitle">الإصدار v5.1.39 • واتساب المساعدة</div>
+                            <div class="settings-item-subtitle">الإصدار v5.1.40 • واتساب المساعدة</div>
                         </div>
                         <div class="settings-item-arrow">‹</div>
                     </div>
@@ -623,9 +641,16 @@
 
                         <div class="branch-edit-form" style="margin-top: 14px;">
                             <div style="display: flex; gap: 8px; margin-bottom: 12px;">
-                                <button type="button" id="btnScanQrCamera" onclick="window.BayanMobile.openQrCameraScanner()" style="flex: 1; height: 42px; border-radius: 12px; border: none; background: linear-gradient(135deg, #047857, #059669); color: #ffffff; font-weight: 800; font-size: 0.82rem; cursor: pointer;">📷 مسح QR بالكاميرا</button>
-                                <button type="button" id="btnUploadQrImage" onclick="document.getElementById('qrImageFileInput').click()" style="flex: 1; height: 42px; border-radius: 12px; border: 1.5px solid var(--border-subtle); background: var(--chip-bg); color: var(--text-main); font-weight: 800; font-size: 0.82rem; cursor: pointer;">🖼️ رفع صورة QR من الهاتف</button>
-                                <input type="file" id="qrImageFileInput" accept="image/*" hidden onchange="window.BayanMobile.handleQrImageUpload(this)">
+                                <button type="button" id="btnScanQrCamera"
+                                    onclick="window.BayanMobile.openQrCameraScanner()"
+                                    style="flex: 1; height: 42px; border-radius: 12px; border: none; background: linear-gradient(135deg, #047857, #059669); color: #ffffff; font-weight: 800; font-size: 0.82rem; cursor: pointer;">📷
+                                    مسح QR بالكاميرا</button>
+                                <button type="button" id="btnUploadQrImage"
+                                    onclick="document.getElementById('qrImageFileInput').click()"
+                                    style="flex: 1; height: 42px; border-radius: 12px; border: 1.5px solid var(--border-subtle); background: var(--chip-bg); color: var(--text-main); font-weight: 800; font-size: 0.82rem; cursor: pointer;">🖼️
+                                    رفع صورة QR من الهاتف</button>
+                                <input type="file" id="qrImageFileInput" accept="image/*" hidden
+                                    onchange="window.BayanMobile.handleQrImageUpload(this)">
                             </div>
                             <div class="form-group" style="margin-bottom: 12px;">
                                 <label class="form-label" for="settingShopIdInput">كود الفرع السحابي (Shop ID):</label>
@@ -1305,11 +1330,17 @@
             </p>
 
             <div style="display: flex; gap: 8px; margin-bottom: 12px;">
-                <button type="button" onclick="window.BayanMobile.openQrCameraScanner()" style="flex: 1; height: 42px; border-radius: 12px; border: none; background: linear-gradient(135deg, #047857, #059669); color: #ffffff; font-weight: 800; font-size: 0.82rem; cursor: pointer;">📷 مسح QR بالكاميرا</button>
-                <button type="button" onclick="document.getElementById('pinQrImageFileInput').click()" style="flex: 1; height: 42px; border-radius: 12px; border: 1.5px solid var(--border-subtle); background: var(--chip-bg); color: var(--text-main); font-weight: 800; font-size: 0.82rem; cursor: pointer;">🖼️ رفع صورة QR</button>
-                <input type="file" id="pinQrImageFileInput" accept="image/*" hidden onchange="window.BayanMobile.handleQrImageUpload(this)">
+                <button type="button" onclick="window.BayanMobile.openQrCameraScanner()"
+                    style="flex: 1; height: 42px; border-radius: 12px; border: none; background: linear-gradient(135deg, #047857, #059669); color: #ffffff; font-weight: 800; font-size: 0.82rem; cursor: pointer;">📷
+                    مسح QR بالكاميرا</button>
+                <button type="button" onclick="document.getElementById('pinQrImageFileInput').click()"
+                    style="flex: 1; height: 42px; border-radius: 12px; border: 1.5px solid var(--border-subtle); background: var(--chip-bg); color: var(--text-main); font-weight: 800; font-size: 0.82rem; cursor: pointer;">🖼️
+                    رفع صورة QR</button>
+                <input type="file" id="pinQrImageFileInput" accept="image/*" hidden
+                    onchange="window.BayanMobile.handleQrImageUpload(this)">
             </div>
-            <div style="font-size: 0.74rem; color: var(--text-dim); font-weight: 700; margin-bottom: 12px;">— أو أدخل البيانات يدوياً —</div>
+            <div style="font-size: 0.74rem; color: var(--text-dim); font-weight: 700; margin-bottom: 12px;">— أو أدخل
+                البيانات يدوياً —</div>
 
             <div style="text-align: right; margin-bottom: 6px;">
                 <label
@@ -1664,24 +1695,32 @@
     <script src="lib/html2canvas.min.js"></script>
     <!-- نافذة حوار حديثة موحدة (BayanDialog) بدلاً من prompt / confirm / alert -->
     <div id="bayanDialogOverlay" class="modal-overlay" style="display: none; z-index: 99999;">
-        <div class="modal-sheet" style="max-width: 400px; margin: auto; border-radius: 18px; padding: 20px; background: var(--bg-card); color: var(--text-main); border: 1px solid var(--border-subtle);">
-            <h3 id="bayanDialogTitle" style="font-size: 1rem; font-weight: 900; margin-bottom: 8px; color: var(--text-main);"></h3>
-            <p id="bayanDialogMsg" style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 14px; line-height: 1.5; white-space: pre-line;"></p>
-            <input id="bayanDialogInput" type="text" style="display: none; width: 100%; height: 44px; padding: 0 12px; border-radius: 12px; border: 1.5px solid var(--border-strong); background: var(--input-bg); color: var(--text-main); font-size: 0.95rem; font-weight: 800; margin-bottom: 14px;" />
+        <div class="modal-sheet"
+            style="max-width: 400px; margin: auto; border-radius: 18px; padding: 20px; background: var(--bg-card); color: var(--text-main); border: 1px solid var(--border-subtle);">
+            <h3 id="bayanDialogTitle"
+                style="font-size: 1rem; font-weight: 900; margin-bottom: 8px; color: var(--text-main);"></h3>
+            <p id="bayanDialogMsg"
+                style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 14px; line-height: 1.5; white-space: pre-line;">
+            </p>
+            <input id="bayanDialogInput" type="text"
+                style="display: none; width: 100%; height: 44px; padding: 0 12px; border-radius: 12px; border: 1.5px solid var(--border-strong); background: var(--input-bg); color: var(--text-main); font-size: 0.95rem; font-weight: 800; margin-bottom: 14px;" />
             <div style="display: flex; gap: 10px;">
-                <button id="bayanDialogCancel" type="button" style="flex: 1; height: 42px; border-radius: 12px; background: var(--chip-bg); color: var(--text-main); border: 1.5px solid var(--border-subtle); font-weight: 800; cursor: pointer;">إلغاء</button>
-                <button id="bayanDialogOk" type="button" style="flex: 1.4; height: 42px; border-radius: 12px; background: linear-gradient(135deg, #047857, #059669); color: #ffffff; border: none; font-weight: 800; cursor: pointer;">تأكيد</button>
+                <button id="bayanDialogCancel" type="button"
+                    style="flex: 1; height: 42px; border-radius: 12px; background: var(--chip-bg); color: var(--text-main); border: 1.5px solid var(--border-subtle); font-weight: 800; cursor: pointer;">إلغاء</button>
+                <button id="bayanDialogOk" type="button"
+                    style="flex: 1.4; height: 42px; border-radius: 12px; background: linear-gradient(135deg, #047857, #059669); color: #ffffff; border: none; font-weight: 800; cursor: pointer;">تأكيد</button>
             </div>
         </div>
     </div>
 
-    <script src="js/mobile_fashion.js?v=5.1.39"></script>
+    <script src="js/mobile_fashion.js?v=5.1.40"></script>
     <!-- نافذة تثبيت التطبيق التلقائية (PWA Install Prompt) -->
     <div id="pwaInstallBannerModal" style="display: none;">
         <div class="pwa-install-card">
             <img src="assets/icon-192.png" alt="بيان POS" class="pwa-install-icon">
             <h3 class="pwa-install-title">تثبيت تطبيق بَيَان POS</h3>
-            <p id="pwaInstallDesc" class="pwa-install-desc">أضف التطبيق إلى شاشتك الرئيسية للفتح السريع والعمل بدون إنترنت</p>
+            <p id="pwaInstallDesc" class="pwa-install-desc">أضف التطبيق إلى شاشتك الرئيسية للفتح السريع والعمل بدون
+                إنترنت</p>
             <div class="pwa-install-actions">
                 <button id="btnConfirmPwaInstall" type="button" class="pwa-btn-install">تثبيت التطبيق</button>
                 <button id="btnDismissPwaInstall" type="button" class="pwa-btn-later">لاحقاً</button>
@@ -1690,20 +1729,30 @@
     </div>
 
     <!-- نافذة مسح QR بالكاميرا -->
-    <div id="qrScannerModalOverlay" class="modal-overlay" style="display: none; position: fixed; inset: 0; z-index: 999999 !important;">
-        <div class="modal-sheet" style="max-width: 400px; margin: auto; border-radius: 18px; padding: 18px; background: var(--bg-card); color: var(--text-main); text-align: center;">
+    <div id="qrScannerModalOverlay" class="modal-overlay"
+        style="display: none; position: fixed; inset: 0; z-index: 999999 !important;">
+        <div class="modal-sheet"
+            style="max-width: 400px; margin: auto; border-radius: 18px; padding: 18px; background: var(--bg-card); color: var(--text-main); text-align: center;">
             <h3 style="font-size: 1rem; font-weight: 900; margin-bottom: 6px;">📷 وجّه الكاميرا نحو QR Code الربط</h3>
-            <p id="qrScannerStatusText" style="font-size: 0.8rem; color: var(--primary); font-weight: 800; margin-bottom: 10px;">جاري تشغيل الكاميرا...</p>
-            <div style="position: relative; width: 100%; border-radius: 14px; overflow: hidden; background: #000; margin-bottom: 12px;">
-                <video id="qrScannerVideo" autoplay playsinline muted style="width: 100%; min-height: 260px; max-height: 300px; object-fit: cover; display: block; background: #000;"></video>
-                <div style="position: absolute; inset: 18%; border: 2.5px solid #10b981; border-radius: 12px; pointer-events: none; box-shadow: 0 0 0 9999px rgba(0,0,0,0.35);"></div>
+            <p id="qrScannerStatusText"
+                style="font-size: 0.8rem; color: var(--primary); font-weight: 800; margin-bottom: 10px;">جاري تشغيل
+                الكاميرا...</p>
+            <div
+                style="position: relative; width: 100%; border-radius: 14px; overflow: hidden; background: #000; margin-bottom: 12px;">
+                <video id="qrScannerVideo" autoplay playsinline muted
+                    style="width: 100%; min-height: 260px; max-height: 300px; object-fit: cover; display: block; background: #000;"></video>
+                <div
+                    style="position: absolute; inset: 18%; border: 2.5px solid #10b981; border-radius: 12px; pointer-events: none; box-shadow: 0 0 0 9999px rgba(0,0,0,0.35);">
+                </div>
             </div>
             <div id="qrScannerFallbackBox" style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px;">
                 <input type="file" id="qrNativeCameraInput" accept="image/*" capture="environment" hidden onchange="window.BayanMobile.closeQrCameraScanner(); window.BayanMobile.handleQrImageUpload(this)">
                 <button type="button" onclick="document.getElementById('qrNativeCameraInput').click()" style="width: 100%; height: 42px; border-radius: 12px; border: none; background: linear-gradient(135deg, #047857, #059669); color: #ffffff; font-weight: 800; cursor: pointer;">📸 التقاط صورة بالكاميرا (بديل فوري)</button>
                 <button type="button" onclick="window.BayanMobile.closeQrCameraScanner(); document.getElementById('pinQrImageFileInput').click()" style="width: 100%; height: 42px; border-radius: 12px; border: 1.5px solid var(--border-subtle); background: var(--chip-bg); color: var(--text-main); font-weight: 800; cursor: pointer;">🖼️ اختيار صورة من الاستوديو</button>
             </div>
-            <button type="button" onclick="window.BayanMobile.closeQrCameraScanner()" style="width: 100%; height: 42px; border-radius: 12px; background: var(--chip-bg); color: var(--text-main); border: 1.5px solid var(--border-subtle); font-weight: 800; cursor: pointer;">إغلاق الكاميرا</button>
+            <button type="button" onclick="window.BayanMobile.closeQrCameraScanner()"
+                style="width: 100%; height: 42px; border-radius: 12px; background: var(--chip-bg); color: var(--text-main); border: 1.5px solid var(--border-subtle); font-weight: 800; cursor: pointer;">إغلاق
+                الكاميرا</button>
         </div>
     </div>
 
@@ -1767,22 +1816,8 @@
             }
         })();
     </script>
-    <script>if ('serviceWorker' in navigator) { window.addEventListener('load', () => navigator.serviceWorker.register('./service-worker.js').catch(() => {})); }</script>
+    <script>if ('serviceWorker' in navigator) { window.addEventListener('load', () => navigator.serviceWorker.register('./service-worker.js').catch(() => { })); }</script>
 </body>
 
 </html>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 

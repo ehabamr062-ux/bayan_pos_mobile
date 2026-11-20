@@ -475,6 +475,13 @@
         if (currency) curSettings.currency = currency;
         if (shopLogo) curSettings.shop_logo = shopLogo;
         State.settings = Object.assign({}, State.settings || {}, curSettings);
+        if (Array.isArray(data.paymentMethods)) {
+            State.paymentMethods = data.paymentMethods;
+            try { localStorage.setItem('bayan_mob_payment_methods', JSON.stringify(data.paymentMethods)); } catch (_) {}
+        }
+        const topNameEl = document.getElementById('topbarShopName');
+        if (topNameEl) topNameEl.textContent = shopName;
+        if (typeof renderPosPaymentMethods === 'function') renderPosPaymentMethods();
         if (footer) curSettings.invoice_footer = footer;
         localStorage.setItem('bayan_mob_settings', JSON.stringify(curSettings));
         State.settings = curSettings;
@@ -5898,6 +5905,32 @@ ${footer || 'شكراً لتعاملكم الراقي معنا! ✨'}`;
         classifyTransaction,
         renderAccountsView,
         openQrCameraScanner: (...args) => (typeof openQrCameraScanner === 'function' ? openQrCameraScanner(...args) : undefined),
+        renderPosPaymentMethods: function () {
+            const sel = document.getElementById('posPaymentMethodSelect');
+            if (!sel) return;
+            const defaults = [
+                { id: 'cash', label: '💵 نقدي (كاش)' },
+                { id: 'vodafone', label: '📱 فودافون كاش' },
+                { id: 'card', label: '💳 فيزا / شبكة' },
+                { id: 'credit', label: '⏳ آجل / سداد جزئي' }
+            ];
+            let custom = Array.isArray(State.paymentMethods) ? State.paymentMethods : [];
+            if (custom.length === 0) {
+                try { custom = JSON.parse(localStorage.getItem('bayan_mob_payment_methods') || '[]'); } catch (_) {}
+            }
+            const seen = new Set(defaults.map(d => d.id));
+            const merged = [...defaults];
+            if (Array.isArray(custom)) {
+                custom.forEach(c => {
+                    const cid = String(c?.id || c?.name || c || '').trim();
+                    const clabel = String(c?.label || c?.name || c || '').trim();
+                    if (cid && !seen.has(cid)) { seen.add(cid); merged.push({ id: cid, label: clabel || cid }); }
+                });
+            }
+            const curVal = sel.value || State.selectedPayMethod || 'cash';
+            sel.innerHTML = merged.map(m => `<option value="${m.id}">${m.label}</option>`).join('');
+            sel.value = merged.some(m => m.id === curVal) ? curVal : 'cash';
+        },
         onPosPayMethodChange: (method) => {
             State.selectedPayMethod = method || 'cash';
             const partialWrap = document.getElementById('posPartialPayWrap');

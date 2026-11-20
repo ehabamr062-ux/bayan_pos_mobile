@@ -2214,30 +2214,30 @@
             let custPayload = null;
             if ((isCredit && remaining > 0 && custName !== 'عميل نقدي') || oldRemainingReversed) {
                 if (isCredit && remaining > 0 && custName !== 'عميل نقدي') {
-                const cleanTarget = cleanArabic(custName);
-                let foundCustomer = State.customers.find(c => c && cleanArabic(c.name) === cleanTarget);
-                let foundAccount = State.accounts.find(a => a && cleanArabic(a.name) === cleanTarget);
+                    const cleanTarget = cleanArabic(custName);
+                    let foundCustomer = State.customers.find(c => c && cleanArabic(c.name) === cleanTarget);
+                    let foundAccount = State.accounts.find(a => a && cleanArabic(a.name) === cleanTarget);
 
-                if (foundCustomer) {
-                    foundCustomer.balance = (parseFloat(foundCustomer.balance) || 0) + remaining;
-                }
-                if (foundAccount) {
-                    foundAccount.balance = (parseFloat(foundAccount.balance) || 0) + remaining;
-                } else if (!foundCustomer) {
-                    // عميل جديد يسجل فوراً بالمديونية
-                    const newCustObj = {
-                        id: String(Date.now()),
-                        name: custName,
-                        code: String(Math.floor(1000 + Math.random() * 9000)),
-                        type: 'client',
-                        typeLabel: 'عميل',
-                        mobile: '',
-                        balance: remaining,
-                        created_at: new Date().toISOString()
-                    };
-                    State.customers.push(newCustObj);
-                    State.accounts.push(newCustObj);
-                }
+                    if (foundCustomer) {
+                        foundCustomer.balance = (parseFloat(foundCustomer.balance) || 0) + remaining;
+                    }
+                    if (foundAccount) {
+                        foundAccount.balance = (parseFloat(foundAccount.balance) || 0) + remaining;
+                    } else if (!foundCustomer) {
+                        // عميل جديد يسجل فوراً بالمديونية
+                        const newCustObj = {
+                            id: String(Date.now()),
+                            name: custName,
+                            code: String(Math.floor(1000 + Math.random() * 9000)),
+                            type: 'client',
+                            typeLabel: 'عميل',
+                            mobile: '',
+                            balance: remaining,
+                            created_at: new Date().toISOString()
+                        };
+                        State.customers.push(newCustObj);
+                        State.accounts.push(newCustObj);
+                    }
                 }
 
                 try {
@@ -2268,6 +2268,11 @@
             State.cart = [];
             State.editingInvoiceId = null;
             State.editingOriginalTx = null;
+            State.selectedPayMethod = 'cash';
+            const paySelReset = document.getElementById('posPaymentMethodSelect');
+            if (paySelReset) paySelReset.value = 'cash';
+            const partialWrapReset = document.getElementById('posPartialPayWrap');
+            if (partialWrapReset) partialWrapReset.style.display = 'none';
             const paidInpReset = document.getElementById('posPaidAmountInput');
             if (paidInpReset) paidInpReset.value = '';
             try { localStorage.setItem(CONFIG.STORAGE_PREFIX + 'products', JSON.stringify(State.products)); } catch (e) { }
@@ -2371,189 +2376,189 @@
                         showToast(`💾 الفاتورة #${invoiceId} محفوظة محلياً وفي طابور المزامنة التلقائية ⚡`, 'info');
                     }
                     function initPwaInstallPrompt() {
-        const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
-        if (isStandalone || sessionStorage.getItem('bayan_pwa_dismissed') === '1') return;
+                        const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+                        if (isStandalone || sessionStorage.getItem('bayan_pwa_dismissed') === '1') return;
 
-        const modal = document.getElementById('pwaInstallBannerModal');
-        const descEl = document.getElementById('pwaInstallDesc');
-        const btnInstall = document.getElementById('btnConfirmPwaInstall');
-        const btnLater = document.getElementById('btnDismissPwaInstall');
-        if (!modal || !btnInstall || !btnLater) return;
+                        const modal = document.getElementById('pwaInstallBannerModal');
+                        const descEl = document.getElementById('pwaInstallDesc');
+                        const btnInstall = document.getElementById('btnConfirmPwaInstall');
+                        const btnLater = document.getElementById('btnDismissPwaInstall');
+                        if (!modal || !btnInstall || !btnLater) return;
 
-        let deferredPrompt = null;
-        const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+                        let deferredPrompt = null;
+                        const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
 
-        const showBanner = () => {
-            if (sessionStorage.getItem('bayan_pwa_dismissed') === '1') return;
-            modal.style.display = 'block';
-        };
+                        const showBanner = () => {
+                            if (sessionStorage.getItem('bayan_pwa_dismissed') === '1') return;
+                            modal.style.display = 'block';
+                        };
 
-        window.addEventListener('beforeinstallprompt', (e) => {
-            e.preventDefault();
-            deferredPrompt = e;
-        });
+                        window.addEventListener('beforeinstallprompt', (e) => {
+                            e.preventDefault();
+                            deferredPrompt = e;
+                        });
 
-        setTimeout(showBanner, 800);
+                        setTimeout(showBanner, 800);
 
-        btnLater.onclick = () => {
-            modal.style.display = 'none';
-            sessionStorage.setItem('bayan_pwa_dismissed', '1');
-        };
+                        btnLater.onclick = () => {
+                            modal.style.display = 'none';
+                            sessionStorage.setItem('bayan_pwa_dismissed', '1');
+                        };
 
-        btnInstall.onclick = async () => {
-            if (deferredPrompt) {
-                deferredPrompt.prompt();
-                try { await deferredPrompt.userChoice; } catch (_) {}
-                deferredPrompt = null;
-                modal.style.display = 'none';
-            } else if (descEl) {
-                descEl.innerHTML = isIOS
-                    ? '1️⃣ اضغط على زر <b>المشاركة (Share ⬆️)</b> في شريط Safari بالأسفل.<br>2️⃣ اختر <b>"إضافة إلى الصفحة الرئيسية" (Add to Home Screen)</b>.'
-                    : '1️⃣ افتح القائمة <b>(⋮)</b> في أعلى المتصفح (Chrome / Edge).<br>2️⃣ اختر <b>"تثبيت التطبيق" (Install App / Add to Home Screen)</b>.';
-            }
-        };
-    }
-
-    let _qrCamStream = null;
-    let _qrScanRaf = null;
-
-    async function applyScannedSyncPayload(rawText) {
-        if (!rawText || !String(rawText).trim()) return;
-        let shopId = '';
-        let password = '';
-        try {
-            const parsed = JSON.parse(String(rawText).trim());
-            if (parsed && parsed.shopId) {
-                shopId = String(parsed.shopId).trim();
-                password = String(parsed.password || '').trim();
-            }
-        } catch (_) {
-            shopId = String(rawText).trim();
-        }
-        if (!shopId || !password) {
-            await openModernAlert('يرجى إدخال كود المحل وكود الاقتران معاً أو مسح QR Code.', 'تحقق أمني');
-            return;
-        }
-        const inp = document.getElementById('settingShopIdInput');
-        if (inp) inp.value = shopId;
-        if (typeof verifyAndPairDevice === 'function') {
-            await verifyAndPairDevice(shopId, password);
-        }
-        await openModernAlert(`تم قراءة كود الربط (${shopId}) وتفعيل المزامنة السحابية بنجاح!`, '✅ تم الربط بالباركود');
-    }
-
-    let _wasPinModalOpen = false;
-    function closeQrCameraScanner() {
-        if (_qrScanRaf) { cancelAnimationFrame(_qrScanRaf); _qrScanRaf = null; }
-        if (_qrCamStream) {
-            _qrCamStream.getTracks().forEach(t => t.stop());
-            _qrCamStream = null;
-        }
-        const ov = document.getElementById('qrScannerModalOverlay');
-        if (ov) { ov.classList.remove('active'); ov.style.display = 'none'; }
-        if (_wasPinModalOpen) {
-            _wasPinModalOpen = false;
-            const pinOv = document.getElementById('pinModalOverlay');
-            if (pinOv) { pinOv.style.display = 'flex'; pinOv.classList.add('active'); }
-        }
-    }
-
-    async function openQrCameraScanner() {
-        const ov = document.getElementById('qrScannerModalOverlay');
-        const video = document.getElementById('qrScannerVideo');
-        const statusEl = document.getElementById('qrScannerStatusText');
-        const fallbackBox = document.getElementById('qrScannerFallbackBox');
-        const pinOv = document.getElementById('pinModalOverlay');
-        if (pinOv && pinOv.classList.contains('active')) {
-            _wasPinModalOpen = true;
-            pinOv.classList.remove('active');
-            pinOv.style.display = 'none';
-        }
-        if (ov) {
-            ov.style.display = 'flex';
-            ov.style.zIndex = '999999';
-            ov.classList.add('active');
-        }
-        if (statusEl) { statusEl.textContent = 'جاري تشغيل الكاميرا...'; statusEl.style.color = 'var(--primary)'; }
-        if (fallbackBox) fallbackBox.style.display = 'none';
-
-        if (!ov || !video || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-            if (statusEl) { statusEl.textContent = '⚠️ الكاميرا المباشرة محظورة أو غير مدعومة في هذا المتصفح. استخدم الأزرار بالأسفل:'; statusEl.style.color = 'var(--rose)'; }
-            if (fallbackBox) fallbackBox.style.display = 'flex';
-            return;
-        }
-        try {
-            try {
-                _qrCamStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false });
-            } catch (_) {
-                _qrCamStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-            }
-            video.srcObject = _qrCamStream;
-            ov.style.display = 'flex';
-            ov.style.zIndex = '10005';
-            ov.classList.add('active');
-            try { await video.play(); } catch (_) {}
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d', { willReadFrequently: true });
-            const tick = async () => {
-                if (!_qrCamStream) return;
-                if (video.readyState === video.HAVE_ENOUGH_DATA && typeof jsQR === 'function') {
-                    canvas.width = video.videoWidth;
-                    canvas.height = video.videoHeight;
-                    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-                    const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-                    const code = jsQR(imgData.data, imgData.width, imgData.height);
-                    if (code && code.data) {
-                        closeQrCameraScanner();
-                        await applyScannedSyncPayload(code.data);
-                        return;
+                        btnInstall.onclick = async () => {
+                            if (deferredPrompt) {
+                                deferredPrompt.prompt();
+                                try { await deferredPrompt.userChoice; } catch (_) { }
+                                deferredPrompt = null;
+                                modal.style.display = 'none';
+                            } else if (descEl) {
+                                descEl.innerHTML = isIOS
+                                    ? '1️⃣ اضغط على زر <b>المشاركة (Share ⬆️)</b> في شريط Safari بالأسفل.<br>2️⃣ اختر <b>"إضافة إلى الصفحة الرئيسية" (Add to Home Screen)</b>.'
+                                    : '1️⃣ افتح القائمة <b>(⋮)</b> في أعلى المتصفح (Chrome / Edge).<br>2️⃣ اختر <b>"تثبيت التطبيق" (Install App / Add to Home Screen)</b>.';
+                            }
+                        };
                     }
-                }
-                _qrScanRaf = requestAnimationFrame(tick);
-            };
-            _qrScanRaf = requestAnimationFrame(tick);
-        } catch (err) {
-            const statusEl = document.getElementById('qrScannerStatusText');
-            const fallbackBox = document.getElementById('qrScannerFallbackBox');
-            if (statusEl) { statusEl.textContent = '⚠️ تعذر فتح الكاميرا المباشرة (' + (err?.name || 'إذن مرفوض') + '). استخدم الأزرار بالأسفل:'; statusEl.style.color = 'var(--rose)'; }
-            if (fallbackBox) fallbackBox.style.display = 'flex';
-        }
-    }
 
-    function handleQrImageUpload(inputEl) {
-        const file = inputEl && inputEl.files && inputEl.files[0];
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = () => {
-            const img = new Image();
-            img.onload = async () => {
-                const canvas = document.createElement('canvas');
-                canvas.width = img.width;
-                canvas.height = img.height;
-                const ctx = canvas.getContext('2d');
-                ctx.drawImage(img, 0, 0);
-                const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-                const code = (typeof jsQR === 'function') ? jsQR(imgData.data, imgData.width, imgData.height) : null;
-                if (code && code.data) {
-                    await applyScannedSyncPayload(code.data);
-                } else {
-                    await openModernAlert('لم يتم العثور على QR Code صالح داخل هذه الصورة.', 'تنبيه');
-                }
-            };
-            img.src = reader.result;
-        };
-        reader.readAsDataURL(file);
-        inputEl.value = '';
-    }
+                    let _qrCamStream = null;
+                    let _qrScanRaf = null;
 
-    if (window.BayanMobile) {
-        window.BayanMobile.openQrCameraScanner = openQrCameraScanner;
-        window.BayanMobile.closeQrCameraScanner = closeQrCameraScanner;
-        window.BayanMobile.handleQrImageUpload = handleQrImageUpload;
-    }
+                    async function applyScannedSyncPayload(rawText) {
+                        if (!rawText || !String(rawText).trim()) return;
+                        let shopId = '';
+                        let password = '';
+                        try {
+                            const parsed = JSON.parse(String(rawText).trim());
+                            if (parsed && parsed.shopId) {
+                                shopId = String(parsed.shopId).trim();
+                                password = String(parsed.password || '').trim();
+                            }
+                        } catch (_) {
+                            shopId = String(rawText).trim();
+                        }
+                        if (!shopId || !password) {
+                            await openModernAlert('يرجى إدخال كود المحل وكود الاقتران معاً أو مسح QR Code.', 'تحقق أمني');
+                            return;
+                        }
+                        const inp = document.getElementById('settingShopIdInput');
+                        if (inp) inp.value = shopId;
+                        if (typeof verifyAndPairDevice === 'function') {
+                            await verifyAndPairDevice(shopId, password);
+                        }
+                        await openModernAlert(`تم قراءة كود الربط (${shopId}) وتفعيل المزامنة السحابية بنجاح!`, '✅ تم الربط بالباركود');
+                    }
 
-    try { initPwaInstallPrompt(); } catch (err) { console.error('PWA prompt init error:', err); }
-})();
+                    let _wasPinModalOpen = false;
+                    function closeQrCameraScanner() {
+                        if (_qrScanRaf) { cancelAnimationFrame(_qrScanRaf); _qrScanRaf = null; }
+                        if (_qrCamStream) {
+                            _qrCamStream.getTracks().forEach(t => t.stop());
+                            _qrCamStream = null;
+                        }
+                        const ov = document.getElementById('qrScannerModalOverlay');
+                        if (ov) { ov.classList.remove('active'); ov.style.display = 'none'; }
+                        if (_wasPinModalOpen) {
+                            _wasPinModalOpen = false;
+                            const pinOv = document.getElementById('pinModalOverlay');
+                            if (pinOv) { pinOv.style.display = 'flex'; pinOv.classList.add('active'); }
+                        }
+                    }
+
+                    async function openQrCameraScanner() {
+                        const ov = document.getElementById('qrScannerModalOverlay');
+                        const video = document.getElementById('qrScannerVideo');
+                        const statusEl = document.getElementById('qrScannerStatusText');
+                        const fallbackBox = document.getElementById('qrScannerFallbackBox');
+                        const pinOv = document.getElementById('pinModalOverlay');
+                        if (pinOv && pinOv.classList.contains('active')) {
+                            _wasPinModalOpen = true;
+                            pinOv.classList.remove('active');
+                            pinOv.style.display = 'none';
+                        }
+                        if (ov) {
+                            ov.style.display = 'flex';
+                            ov.style.zIndex = '999999';
+                            ov.classList.add('active');
+                        }
+                        if (statusEl) { statusEl.textContent = 'جاري تشغيل الكاميرا...'; statusEl.style.color = 'var(--primary)'; }
+                        if (fallbackBox) fallbackBox.style.display = 'none';
+
+                        if (!ov || !video || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                            if (statusEl) { statusEl.textContent = '⚠️ الكاميرا المباشرة محظورة أو غير مدعومة في هذا المتصفح. استخدم الأزرار بالأسفل:'; statusEl.style.color = 'var(--rose)'; }
+                            if (fallbackBox) fallbackBox.style.display = 'flex';
+                            return;
+                        }
+                        try {
+                            try {
+                                _qrCamStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false });
+                            } catch (_) {
+                                _qrCamStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+                            }
+                            video.srcObject = _qrCamStream;
+                            ov.style.display = 'flex';
+                            ov.style.zIndex = '10005';
+                            ov.classList.add('active');
+                            try { await video.play(); } catch (_) { }
+                            const canvas = document.createElement('canvas');
+                            const ctx = canvas.getContext('2d', { willReadFrequently: true });
+                            const tick = async () => {
+                                if (!_qrCamStream) return;
+                                if (video.readyState === video.HAVE_ENOUGH_DATA && typeof jsQR === 'function') {
+                                    canvas.width = video.videoWidth;
+                                    canvas.height = video.videoHeight;
+                                    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                                    const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                                    const code = jsQR(imgData.data, imgData.width, imgData.height);
+                                    if (code && code.data) {
+                                        closeQrCameraScanner();
+                                        await applyScannedSyncPayload(code.data);
+                                        return;
+                                    }
+                                }
+                                _qrScanRaf = requestAnimationFrame(tick);
+                            };
+                            _qrScanRaf = requestAnimationFrame(tick);
+                        } catch (err) {
+                            const statusEl = document.getElementById('qrScannerStatusText');
+                            const fallbackBox = document.getElementById('qrScannerFallbackBox');
+                            if (statusEl) { statusEl.textContent = '⚠️ تعذر فتح الكاميرا المباشرة (' + (err?.name || 'إذن مرفوض') + '). استخدم الأزرار بالأسفل:'; statusEl.style.color = 'var(--rose)'; }
+                            if (fallbackBox) fallbackBox.style.display = 'flex';
+                        }
+                    }
+
+                    function handleQrImageUpload(inputEl) {
+                        const file = inputEl && inputEl.files && inputEl.files[0];
+                        if (!file) return;
+                        const reader = new FileReader();
+                        reader.onload = () => {
+                            const img = new Image();
+                            img.onload = async () => {
+                                const canvas = document.createElement('canvas');
+                                canvas.width = img.width;
+                                canvas.height = img.height;
+                                const ctx = canvas.getContext('2d');
+                                ctx.drawImage(img, 0, 0);
+                                const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                                const code = (typeof jsQR === 'function') ? jsQR(imgData.data, imgData.width, imgData.height) : null;
+                                if (code && code.data) {
+                                    await applyScannedSyncPayload(code.data);
+                                } else {
+                                    await openModernAlert('لم يتم العثور على QR Code صالح داخل هذه الصورة.', 'تنبيه');
+                                }
+                            };
+                            img.src = reader.result;
+                        };
+                        reader.readAsDataURL(file);
+                        inputEl.value = '';
+                    }
+
+                    if (window.BayanMobile) {
+                        window.BayanMobile.openQrCameraScanner = openQrCameraScanner;
+                        window.BayanMobile.closeQrCameraScanner = closeQrCameraScanner;
+                        window.BayanMobile.handleQrImageUpload = handleQrImageUpload;
+                    }
+
+                    try { initPwaInstallPrompt(); } catch (err) { console.error('PWA prompt init error:', err); }
+                })();
             }
 
         } catch (e) {
@@ -3648,7 +3653,7 @@
                 osc.start();
                 osc.stop(ctx.currentTime + 0.08);
             }
-        } catch (e) {}
+        } catch (e) { }
     }
 
     // ============================================================
@@ -4116,7 +4121,7 @@ ${footer || 'شكراً لتعاملكم الراقي معنا! ✨'}`;
                     localStorage.removeItem(k);
                 }
             });
-            try { indexedDB.deleteDatabase('bayan_mobile_db'); } catch (_) {}
+            try { indexedDB.deleteDatabase('bayan_mobile_db'); } catch (_) { }
             renderSettingsView();
             renderProducts();
             renderCartView();
@@ -4398,11 +4403,11 @@ ${footer || 'شكراً لتعاملكم الراقي معنا! ✨'}`;
                 <label style="font-size: 0.75rem; font-weight: 800; color: var(--text-dim); display: block; margin-bottom: 6px;">اختر المقاس واللون للجرد:</label>
                 <div style="display: flex; flex-wrap: wrap; gap: 6px;">
                     ${product.variants.map((v, idx) => {
-                        const vWh = v.warehouseStocks || {};
-                        const vQty = parseFloat(vWh[wh] !== undefined ? vWh[wh] : (v.stock !== undefined ? v.stock : (v.quantity || 0))) || 0;
-                        const isSel = idx === State.stocktakeVariantIdx;
-                        return `<button type="button" class="vb-chip ${isSel ? 'active' : ''}" onclick="window.BayanMobile.selectStocktakeVariant(${idx})">${v.size || 'عادي'} / ${v.color || 'عام'} (${vQty})</button>`;
-                    }).join('')}
+            const vWh = v.warehouseStocks || {};
+            const vQty = parseFloat(vWh[wh] !== undefined ? vWh[wh] : (v.stock !== undefined ? v.stock : (v.quantity || 0))) || 0;
+            const isSel = idx === State.stocktakeVariantIdx;
+            return `<button type="button" class="vb-chip ${isSel ? 'active' : ''}" onclick="window.BayanMobile.selectStocktakeVariant(${idx})">${v.size || 'عادي'} / ${v.color || 'عام'} (${vQty})</button>`;
+        }).join('')}
                 </div>
             </div>
         ` : '';
@@ -4527,7 +4532,7 @@ ${footer || 'شكراً لتعاملكم الراقي معنا! ✨'}`;
             cashier: CONFIG.DEVICE_NAME || 'بيان موبايل'
         };
         State.transactions.unshift(adjTx);
-        try { localStorage.setItem(CONFIG.STORAGE_PREFIX + 'transactions', JSON.stringify(State.transactions)); } catch (e) {}
+        try { localStorage.setItem(CONFIG.STORAGE_PREFIX + 'transactions', JSON.stringify(State.transactions)); } catch (e) { }
 
         // 3. Record session log
         State.stocktakeSessionLog.unshift({
@@ -4566,7 +4571,7 @@ ${footer || 'شكراً لتعاملكم الراقي معنا! ✨'}`;
                 method: 'POST',
                 headers: getSupabaseHeaders(),
                 body: JSON.stringify([sbRow])
-            }).catch(() => {});
+            }).catch(() => { });
 
             fetch(`${SUPABASE_CONFIG.url}/rest/v1/transactions?on_conflict=id`, {
                 method: 'POST',
@@ -4587,7 +4592,7 @@ ${footer || 'شكراً لتعاملكم الراقي معنا! ✨'}`;
                     warehouse: wh,
                     raw_json: { ...adjTx, shop_id: currentShopId, updatedAt: nowIso }
                 }])
-            }).catch(() => {});
+            }).catch(() => { });
         } else {
             enqueueOfflineItem({ id: 'PROD_ST_' + p.id, prodBatch: [sbRow], createdAt: new Date().toISOString() });
         }
@@ -4659,7 +4664,7 @@ ${footer || 'شكراً لتعاملكم الراقي معنا! ✨'}`;
                     onStocktakeSearchInput(rawVal);
                     return;
                 }
-            } catch (e) {}
+            } catch (e) { }
         }
         const manual = await openModernPrompt('أدخل الباركود أو اسم الصنف للجرد:', '', 'text', '📦 جرد يدوي');
         if (manual && manual.trim()) {
@@ -4752,7 +4757,7 @@ ${footer || 'شكراً لتعاملكم الراقي معنا! ✨'}`;
         if (!file) return;
 
         const reader = new FileReader();
-        reader.onload = function(e) {
+        reader.onload = function (e) {
             try {
                 const parsed = JSON.parse(e.target.result);
                 if (!parsed || (!parsed.products && !parsed.transactions && !parsed.accounts)) {
@@ -4760,7 +4765,7 @@ ${footer || 'شكراً لتعاملكم الراقي معنا! ✨'}`;
                     return;
                 }
 
-                const confirmRestore = confirm(`هل أنت متأكد من استعادة هذه النسخة الاحتياطية؟\nتحتوي على (${(parsed.products||[]).length}) أصناف، و(${(parsed.transactions||[]).length}) حركات.`);
+                const confirmRestore = confirm(`هل أنت متأكد من استعادة هذه النسخة الاحتياطية؟\nتحتوي على (${(parsed.products || []).length}) أصناف، و(${(parsed.transactions || []).length}) حركات.`);
                 if (!confirmRestore) return;
 
                 if (Array.isArray(parsed.products) && parsed.products.length > 0) {
@@ -4769,7 +4774,7 @@ ${footer || 'شكراً لتعاملكم الراقي معنا! ✨'}`;
                 }
                 if (Array.isArray(parsed.transactions) && parsed.transactions.length > 0) {
                     State.transactions = parsed.transactions;
-                    try { localStorage.setItem(CONFIG.STORAGE_PREFIX + 'transactions', JSON.stringify(State.transactions)); } catch (err) {}
+                    try { localStorage.setItem(CONFIG.STORAGE_PREFIX + 'transactions', JSON.stringify(State.transactions)); } catch (err) { }
                 }
                 if (Array.isArray(parsed.accounts) && parsed.accounts.length > 0) {
                     State.accounts = parsed.accounts;
@@ -4777,7 +4782,7 @@ ${footer || 'شكراً لتعاملكم الراقي معنا! ✨'}`;
                     try {
                         localStorage.setItem(CONFIG.STORAGE_PREFIX + 'accounts', JSON.stringify(State.accounts));
                         localStorage.setItem(CONFIG.STORAGE_PREFIX + 'customers', JSON.stringify(State.customers));
-                    } catch (err) {}
+                    } catch (err) { }
                 }
 
                 updateCategoriesList();
@@ -5894,6 +5899,19 @@ ${footer || 'شكراً لتعاملكم الراقي معنا! ✨'}`;
         classifyTransaction,
         renderAccountsView,
         openQrCameraScanner: (...args) => (typeof openQrCameraScanner === 'function' ? openQrCameraScanner(...args) : undefined),
+        onPosPayMethodChange: (method) => {
+            State.selectedPayMethod = method || 'cash';
+            const partialWrap = document.getElementById('posPartialPayWrap');
+            if (partialWrap) partialWrap.style.display = (State.selectedPayMethod === 'credit') ? 'block' : 'none';
+            if (State.selectedPayMethod === 'credit') {
+                const custInp = document.getElementById('posCustomerInput');
+                if (custInp && (custInp.value.trim() === 'عميل نقدي' || !custInp.value.trim())) {
+                    custInp.value = '';
+                    custInp.focus();
+                }
+            }
+            if (typeof renderCartView === 'function') renderCartView();
+        },
         closeQrCameraScanner: (...args) => (typeof closeQrCameraScanner === 'function' ? closeQrCameraScanner(...args) : undefined),
         handleQrImageUpload: (...args) => (typeof handleQrImageUpload === 'function' ? handleQrImageUpload(...args) : undefined),
         loadMoreAccounts: () => { State.accountsRenderLimit = (State.accountsRenderLimit || 40) + 40; renderAccountsView(); },

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'bayan-mobile-v5.1.24';
+﻿const CACHE_NAME = 'bayan-mobile-v5.1.25';
 const STATIC_ASSETS = [
   './',
   './index.html',
@@ -41,3 +41,4 @@ self.addEventListener('fetch', (event) => {
       .catch(() => caches.match(event.request))
   );
 });
+

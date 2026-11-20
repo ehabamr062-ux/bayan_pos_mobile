@@ -339,27 +339,14 @@
                     <div id="posCustomerBalanceBanner" class="customer-balance-banner" style="display: none;"></div>
                 </div>
 
-                <div style="font-size: 0.85rem; font-weight: 900; color: var(--text-main); margin-bottom: 8px;">💳 وسيلة
-                    الدفع:
-                </div>
-                <div class="pay-methods-grid">
-                    <div class="pay-btn-radio active" data-method="cash">
-                        <div class="pay-icon">💵</div>
-                        <div class="pay-name">نقدي (كاش)</div>
-                    </div>
-                    <div class="pay-btn-radio" data-method="vodafone">
-                        <div class="pay-icon">📱</div>
-                        <div class="pay-name">فودافون كاش</div>
-                    </div>
-                    <div class="pay-btn-radio" data-method="card">
-                        <div class="pay-icon">💳</div>
-                        <div class="pay-name">فيزا / شبكة</div>
-                    </div>
-                    <div class="pay-btn-radio" data-method="credit">
-                        <div class="pay-icon">⏳</div>
-                        <div class="pay-name">أجل / سداد جزئي</div>
-                    </div>
-                </div>
+                <label for="posPaymentMethodSelect" style="font-weight: 800; font-size: 15px; color: var(--text-main); margin-bottom: 8px; display: block;">💳 طرق الدفع:</label>
+                <select id="posPaymentMethodSelect" onchange="window.BayanMobile.onPosPayMethodChange(this.value)"
+                    style="width: 100%; height: 48px; padding: 0 14px; border-radius: 12px; font-size: 15px; font-weight: 700; border: 1.5px solid var(--border-strong); background: var(--input-bg); color: var(--text-main); margin-bottom: 10px; outline: none; cursor: pointer;">
+                    <option value="cash" selected>💵 نقدي (كاش)</option>
+                    <option value="vodafone">📱 فودافون كاش</option>
+                    <option value="card">💳 فيزا / شبكة</option>
+                    <option value="credit">⏳ آجل / سداد جزئي</option>
+                </select>
                 <select id="posPaymentMethodSelect" onchange="window.BayanMobile.onPosPayMethodChange(this.value)"
                     style="width: 100%; height: 46px; padding: 0 14px; border-radius: 12px; font-size: 15px; font-weight: 700; border: 1.5px solid var(--border-strong); background: var(--input-bg); color: var(--text-main); margin-bottom: 10px; outline: none; cursor: pointer;">
                     <option value="cash" selected>💵 نقدي (كاش)</option>
@@ -1713,7 +1700,7 @@
         </div>
     </div>
 
-    <script src="js/idb_store.js?v=5.1.41"></script>
+    <script src="js/idb_store.js?v=5.1.42"></script>
     <script src="js/mobile_fashion.js?v=5.1.39"></script>
     <!-- نافذة تثبيت التطبيق التلقائية (PWA Install Prompt) -->
     <div id="pwaInstallBannerModal" style="display: none;">
@@ -1828,4 +1815,5 @@
 </body>
 
 </html>
+
 

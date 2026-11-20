@@ -2442,6 +2442,7 @@
         await openModernAlert(`تم قراءة كود الربط (${shopId}) وتفعيل المزامنة السحابية بنجاح!`, '✅ تم الربط بالباركود');
     }
 
+    let _wasPinModalOpen = false;
     function closeQrCameraScanner() {
         if (_qrScanRaf) { cancelAnimationFrame(_qrScanRaf); _qrScanRaf = null; }
         if (_qrCamStream) {
@@ -2450,13 +2451,35 @@
         }
         const ov = document.getElementById('qrScannerModalOverlay');
         if (ov) { ov.classList.remove('active'); ov.style.display = 'none'; }
+        if (_wasPinModalOpen) {
+            _wasPinModalOpen = false;
+            const pinOv = document.getElementById('pinModalOverlay');
+            if (pinOv) { pinOv.style.display = 'flex'; pinOv.classList.add('active'); }
+        }
     }
 
     async function openQrCameraScanner() {
         const ov = document.getElementById('qrScannerModalOverlay');
         const video = document.getElementById('qrScannerVideo');
+        const statusEl = document.getElementById('qrScannerStatusText');
+        const fallbackBox = document.getElementById('qrScannerFallbackBox');
+        const pinOv = document.getElementById('pinModalOverlay');
+        if (pinOv && pinOv.classList.contains('active')) {
+            _wasPinModalOpen = true;
+            pinOv.classList.remove('active');
+            pinOv.style.display = 'none';
+        }
+        if (ov) {
+            ov.style.display = 'flex';
+            ov.style.zIndex = '999999';
+            ov.classList.add('active');
+        }
+        if (statusEl) { statusEl.textContent = 'جاري تشغيل الكاميرا...'; statusEl.style.color = 'var(--primary)'; }
+        if (fallbackBox) fallbackBox.style.display = 'none';
+
         if (!ov || !video || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-            await openModernAlert('الكاميرا غير مدعومة على هذا المتصفح، يمكنك استخدام زر "رفع صورة QR من الهاتف".', 'تنبيه');
+            if (statusEl) { statusEl.textContent = '⚠️ الكاميرا المباشرة محظورة أو غير مدعومة في هذا المتصفح. استخدم الأزرار بالأسفل:'; statusEl.style.color = 'var(--rose)'; }
+            if (fallbackBox) fallbackBox.style.display = 'flex';
             return;
         }
         try {
@@ -2490,8 +2513,10 @@
             };
             _qrScanRaf = requestAnimationFrame(tick);
         } catch (err) {
-            closeQrCameraScanner();
-            await openModernAlert('تعذر فتح الكاميرا. تأكد من منح صلاحية الكاميرا أو استخدم "رفع صورة QR من الهاتف".', 'تنبيه');
+            const statusEl = document.getElementById('qrScannerStatusText');
+            const fallbackBox = document.getElementById('qrScannerFallbackBox');
+            if (statusEl) { statusEl.textContent = '⚠️ تعذر فتح الكاميرا المباشرة (' + (err?.name || 'إذن مرفوض') + '). استخدم الأزرار بالأسفل:'; statusEl.style.color = 'var(--rose)'; }
+            if (fallbackBox) fallbackBox.style.display = 'flex';
         }
     }
 

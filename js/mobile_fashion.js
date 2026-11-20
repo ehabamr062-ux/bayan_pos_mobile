@@ -2515,7 +2515,13 @@
         inputEl.value = '';
     }
 
-    initPwaInstallPrompt();
+    if (window.BayanMobile) {
+        window.BayanMobile.openQrCameraScanner = openQrCameraScanner;
+        window.BayanMobile.closeQrCameraScanner = closeQrCameraScanner;
+        window.BayanMobile.handleQrImageUpload = handleQrImageUpload;
+    }
+
+    try { initPwaInstallPrompt(); } catch (err) { console.error('PWA prompt init error:', err); }
 })();
             }
 
@@ -5856,9 +5862,9 @@ ${footer || 'شكراً لتعاملكم الراقي معنا! ✨'}`;
         setTxTypeFilter,
         classifyTransaction,
         renderAccountsView,
-        openQrCameraScanner,
-        closeQrCameraScanner,
-        handleQrImageUpload,
+        openQrCameraScanner: (...args) => (typeof openQrCameraScanner === 'function' ? openQrCameraScanner(...args) : undefined),
+        closeQrCameraScanner: (...args) => (typeof closeQrCameraScanner === 'function' ? closeQrCameraScanner(...args) : undefined),
+        handleQrImageUpload: (...args) => (typeof handleQrImageUpload === 'function' ? handleQrImageUpload(...args) : undefined),
         loadMoreAccounts: () => { State.accountsRenderLimit = (State.accountsRenderLimit || 40) + 40; renderAccountsView(); },
         setAccountFilter,
         onAccountSearchInput,

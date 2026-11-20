@@ -1,4 +1,4 @@
-﻿/**
+/**
  * ============================================================
  * 👗 BAYAN POS FASHION - MOBILE & LIVE DASHBOARD LOGIC
  * High-Performance, Standalone Client Engine (<20KB Zero Lag)

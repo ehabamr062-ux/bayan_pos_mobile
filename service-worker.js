@@ -7,7 +7,8 @@ const STATIC_ASSETS = [
   './css/mobile_fashion.css',
   './js/mobile_fashion.js',
   './fonts/cairo.css',
-  './lib/html2canvas.min.js'
+  './lib/html2canvas.min.js',
+  './lib/jsQR.min.js'
 ];
 
 self.addEventListener('install', (event) => {
@@ -41,6 +42,7 @@ self.addEventListener('fetch', (event) => {
       .catch(() => caches.match(event.request))
   );
 });
+
 
 
 

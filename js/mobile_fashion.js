@@ -2415,6 +2415,109 @@
         };
     }
 
+    let _qrCamStream = null;
+    let _qrScanRaf = null;
+
+    async function applyScannedSyncPayload(rawText) {
+        if (!rawText || !String(rawText).trim()) return;
+        let shopId = '';
+        let password = '';
+        try {
+            const parsed = JSON.parse(String(rawText).trim());
+            if (parsed && parsed.shopId) {
+                shopId = String(parsed.shopId).trim();
+                password = String(parsed.password || '').trim();
+            }
+        } catch (_) {
+            shopId = String(rawText).trim();
+        }
+        if (!shopId) {
+            await openModernAlert('الباركود لا يحتوي على كود محل صالح.', 'تنبيه');
+            return;
+        }
+        const inp = document.getElementById('settingShopIdInput');
+        if (inp) inp.value = shopId;
+        if (password && typeof verifyAndPairDevice === 'function') {
+            await verifyAndPairDevice(shopId, password);
+        } else {
+            await saveShopBranch();
+        }
+        await openModernAlert(`تم قراءة كود الربط (${shopId}) وتفعيل المزامنة السحابية بنجاح!`, '✅ تم الربط بالباركود');
+    }
+
+    function closeQrCameraScanner() {
+        if (_qrScanRaf) { cancelAnimationFrame(_qrScanRaf); _qrScanRaf = null; }
+        if (_qrCamStream) {
+            _qrCamStream.getTracks().forEach(t => t.stop());
+            _qrCamStream = null;
+        }
+        const ov = document.getElementById('qrScannerModalOverlay');
+        if (ov) { ov.classList.remove('active'); ov.style.display = 'none'; }
+    }
+
+    async function openQrCameraScanner() {
+        const ov = document.getElementById('qrScannerModalOverlay');
+        const video = document.getElementById('qrScannerVideo');
+        if (!ov || !video || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            await openModernAlert('الكاميرا غير مدعومة على هذا المتصفح، يمكنك استخدام زر "رفع صورة QR من الهاتف".', 'تنبيه');
+            return;
+        }
+        try {
+            _qrCamStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+            video.srcObject = _qrCamStream;
+            ov.style.display = 'flex';
+            ov.classList.add('active');
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d', { willReadFrequently: true });
+            const tick = async () => {
+                if (!_qrCamStream) return;
+                if (video.readyState === video.HAVE_ENOUGH_DATA && typeof jsQR === 'function') {
+                    canvas.width = video.videoWidth;
+                    canvas.height = video.videoHeight;
+                    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                    const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                    const code = jsQR(imgData.data, imgData.width, imgData.height);
+                    if (code && code.data) {
+                        closeQrCameraScanner();
+                        await applyScannedSyncPayload(code.data);
+                        return;
+                    }
+                }
+                _qrScanRaf = requestAnimationFrame(tick);
+            };
+            _qrScanRaf = requestAnimationFrame(tick);
+        } catch (err) {
+            closeQrCameraScanner();
+            await openModernAlert('تعذر فتح الكاميرا. تأكد من منح صلاحية الكاميرا أو استخدم "رفع صورة QR من الهاتف".', 'تنبيه');
+        }
+    }
+
+    function handleQrImageUpload(inputEl) {
+        const file = inputEl && inputEl.files && inputEl.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = () => {
+            const img = new Image();
+            img.onload = async () => {
+                const canvas = document.createElement('canvas');
+                canvas.width = img.width;
+                canvas.height = img.height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0);
+                const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                const code = (typeof jsQR === 'function') ? jsQR(imgData.data, imgData.width, imgData.height) : null;
+                if (code && code.data) {
+                    await applyScannedSyncPayload(code.data);
+                } else {
+                    await openModernAlert('لم يتم العثور على QR Code صالح داخل هذه الصورة.', 'تنبيه');
+                }
+            };
+            img.src = reader.result;
+        };
+        reader.readAsDataURL(file);
+        inputEl.value = '';
+    }
+
     initPwaInstallPrompt();
 })();
             }
@@ -5756,6 +5859,9 @@ ${footer || 'شكراً لتعاملكم الراقي معنا! ✨'}`;
         setTxTypeFilter,
         classifyTransaction,
         renderAccountsView,
+        openQrCameraScanner,
+        closeQrCameraScanner,
+        handleQrImageUpload,
         loadMoreAccounts: () => { State.accountsRenderLimit = (State.accountsRenderLimit || 40) + 40; renderAccountsView(); },
         setAccountFilter,
         onAccountSearchInput,

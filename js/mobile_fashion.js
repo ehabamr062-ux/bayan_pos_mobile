@@ -2460,10 +2460,16 @@
             return;
         }
         try {
-            _qrCamStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+            try {
+                _qrCamStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false });
+            } catch (_) {
+                _qrCamStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+            }
             video.srcObject = _qrCamStream;
             ov.style.display = 'flex';
+            ov.style.zIndex = '10005';
             ov.classList.add('active');
+            try { await video.play(); } catch (_) {}
             const canvas = document.createElement('canvas');
             const ctx = canvas.getContext('2d', { willReadFrequently: true });
             const tick = async () => {

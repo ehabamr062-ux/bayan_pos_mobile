@@ -78,6 +78,8 @@
         // Filters
         searchQuery: '',
         selectedCategory: 'all',
+        productsRenderLimit: 30,
+        lastSyncAt: '',
         accountSearchQuery: '',
         accountFilter: 'all',
         dashboardPeriod: 'today',
@@ -195,42 +197,60 @@
         }
     }
 
-    // 🛡️ حفظ الأصناف محلياً بأمان مع حماية المتصفح من انهيار السعة (QuotaExceededError Protection)
-    function safelyPersistProducts(productsList) {
+    // 🛡️ حفظ الأصناف محلياً بأمان عبر IndexedDB v2 المفهرس بالدفعات (idbBulkPut)
+    function safelyPersistProducts(productsList, clearFirst = true) {
         window.allProducts = productsList;
-        if (window.BayanIDB && typeof window.BayanIDB.idbSet === 'function') {
+        if (window.BayanIDB && typeof window.BayanIDB.idbBulkPut === 'function') {
+            window.BayanIDB.idbBulkPut('products', productsList || [], { clearFirst });
+        } else if (window.BayanIDB && typeof window.BayanIDB.idbSet === 'function') {
             window.BayanIDB.idbSet('products', productsList || []);
         }
     }
 
-    function persistInvoicesToIDB(txList) {
-        if (window.BayanIDB && typeof window.BayanIDB.idbSet === 'function') {
+    function persistInvoicesToIDB(txList, clearFirst = true) {
+        if (window.BayanIDB && typeof window.BayanIDB.idbBulkPut === 'function') {
+            window.BayanIDB.idbBulkPut('invoices', txList || [], { clearFirst });
+        } else if (window.BayanIDB && typeof window.BayanIDB.idbSet === 'function') {
             window.BayanIDB.idbSet('invoices', txList || []);
         }
     }
 
-    function persistCustomersToIDB(custList, accList) {
-        if (window.BayanIDB && typeof window.BayanIDB.idbSet === 'function') {
-            if (custList) window.BayanIDB.idbSet('customers', custList, 'data');
-            if (accList) window.BayanIDB.idbSet('customers', accList, 'accounts');
+    function persistCustomersToIDB(custList, accList, clearFirst = true) {
+        const list = (Array.isArray(accList) && accList.length > 0) ? accList : (Array.isArray(custList) ? custList : null);
+        if (!list) return;
+        if (window.BayanIDB && typeof window.BayanIDB.idbBulkPut === 'function') {
+            window.BayanIDB.idbBulkPut('customers', list, { clearFirst });
+        } else if (window.BayanIDB && typeof window.BayanIDB.idbSet === 'function') {
+            window.BayanIDB.idbSet('customers', list, 'data');
         }
     }
 
     async function hydrateStateFromIDB() {
         if (!window.BayanIDB) return;
         await window.BayanIDB.migrateFromLocalStorage();
-        const [p, inv, cust, acc, logo] = await Promise.all([
-            window.BayanIDB.idbGet('products', 'data'),
-            window.BayanIDB.idbGet('invoices', 'data'),
-            window.BayanIDB.idbGet('customers', 'data'),
-            window.BayanIDB.idbGet('customers', 'accounts'),
-            window.BayanIDB.idbGet('settings', 'shopLogo')
+        const shopId = State.shopId || CONFIG.SHOP_ID || localStorage.getItem('bayan_mob_shop_id') || '';
+        const getAllFn = typeof window.BayanIDB.idbGetAll === 'function'
+            ? (s) => window.BayanIDB.idbGetAll(s)
+            : (s) => window.BayanIDB.idbGet(s, 'data');
+        const [p, inv, cust, logo, savedSyncAt] = await Promise.all([
+            getAllFn('products'),
+            getAllFn('invoices'),
+            getAllFn('customers'),
+            window.BayanIDB.idbGet('settings', 'shopLogo'),
+            shopId ? window.BayanIDB.idbGet('settings', 'last_sync_at_' + shopId) : Promise.resolve(null)
         ]);
-        if (Array.isArray(p) && p.length > 0 && State.products.length === 0) State.products = p;
+        if (Array.isArray(p) && p.length > 0 && State.products.length === 0) {
+            State.products = p;
+            window.allProducts = p;
+        }
         if (Array.isArray(inv) && inv.length > 0 && State.transactions.length === 0) State.transactions = inv;
-        if (Array.isArray(cust) && cust.length > 0 && State.customers.length === 0) State.customers = cust;
-        if (Array.isArray(acc) && acc.length > 0 && State.accounts.length === 0) State.accounts = acc;
+        if (Array.isArray(cust) && cust.length > 0) {
+            if (State.customers.length === 0) State.customers = cust;
+            if (State.accounts.length === 0) State.accounts = cust;
+        }
         if (logo && State.settings) State.settings.shop_logo = logo;
+        if (savedSyncAt) State.lastSyncAt = String(savedSyncAt);
+        else if (shopId) State.lastSyncAt = localStorage.getItem('bayan_mob_last_sync_at_' + shopId) || '';
     }
 
     async function checkServerInfo() {
@@ -568,8 +588,42 @@
     // ============================================================
     // 📥 DATA SYNC PULL (SUPABASE REST)
     // ============================================================
-    async function pullMasterData(showIndicator = true) {
+    // 📥 DATA SYNC PULL (SUPABASE REST — .range() PAGINATION + DELTA SYNC)
+    // ============================================================
+    async function fetchSupabasePaged(baseUrl, { pageSize = 1000, maxPages = 50 } = {}) {
+        const allRows = [];
+        for (let page = 0; page < maxPages; page++) {
+            const from = page * pageSize;
+            const to = from + pageSize - 1;
+            try {
+                const headers = Object.assign({}, getSupabaseHeaders(), {
+                    'Range': `${from}-${to}`,
+                    'Range-Unit': 'items'
+                });
+                const res = await fetch(baseUrl, { headers });
+                if (res.status === 416) {
+                    // Range Not Satisfiable — اكتملت كل الصفحات
+                    break;
+                }
+                if (!res.ok) {
+                    console.warn(`[SupabaseMobile] HTTP ${res.status} on page ${page} (${baseUrl})`);
+                    break;
+                }
+                const batch = await res.json();
+                if (!Array.isArray(batch) || batch.length === 0) break;
+                for (let i = 0; i < batch.length; i++) allRows.push(batch[i]);
+                if (batch.length < pageSize) break;
+            } catch (netErr) {
+                console.warn(`[SupabaseMobile] Network fetch failed on page ${page}:`, netErr.message || netErr);
+                break;
+            }
+        }
+        return allRows;
+    }
+
+    async function pullMasterData(showIndicator = true, options = {}) {
         try {
+            const forceFull = Boolean(options && options.forceFull);
             let currentShopId = State.shopId || CONFIG.SHOP_ID || localStorage.getItem('bayan_mob_shop_id');
             if (currentShopId === 'SHOP_DEFAULT') currentShopId = '';
 
@@ -585,24 +639,23 @@
             State.shopId = currentShopId;
             CONFIG.SHOP_ID = currentShopId;
 
-            const safeFetchJson = async (url) => {
-                try {
-                    const res = await fetch(url, { headers: getSupabaseHeaders() });
-                    if (!res.ok) {
-                        console.warn(`[SupabaseMobile] HTTP ${res.status} on ${url}`);
-                        return [];
-                    }
-                    return await res.json();
-                } catch (netErr) {
-                    console.warn(`[SupabaseMobile] Network fetch failed:`, netErr.message || netErr);
-                    return [];
-                }
-            };
+            const syncStorageKey = 'bayan_mob_last_sync_at_' + currentShopId;
+            const lastSyncAt = State.lastSyncAt || localStorage.getItem(syncStorageKey) || '';
+            const useDelta = Boolean(!forceFull && lastSyncAt && Array.isArray(State.products) && State.products.length > 0);
+            const syncStartedISO = new Date().toISOString();
+
+            const prodBaseUrl = `${SUPABASE_CONFIG.url}/rest/v1/products?id=like.${encodeURIComponent(currentShopId)}_PROD_*&select=*&order=id.asc`
+                + (useDelta ? `&updated_at=gt.${encodeURIComponent(lastSyncAt)}` : '');
+
+            const txBaseUrl = `${SUPABASE_CONFIG.url}/rest/v1/transactions?or=(id.like.${encodeURIComponent(currentShopId)}_*,raw_json->>shop_id.eq.${encodeURIComponent(currentShopId)})&select=*&order=created_at.desc`
+                + (useDelta ? `&created_at=gt.${encodeURIComponent(lastSyncAt)}` : '');
+
+            const auditBaseUrl = `${SUPABASE_CONFIG.url}/rest/v1/treasury_audit?or=(id.like.*${encodeURIComponent(currentShopId)}*,id.like.${encodeURIComponent(currentShopId)}_*)&select=*&order=date.desc`;
 
             const [pRes, tRes, cRes] = await Promise.all([
-                safeFetchJson(`${SUPABASE_CONFIG.url}/rest/v1/products?id=like.${encodeURIComponent(currentShopId)}_PROD_*&select=*`),
-                safeFetchJson(`${SUPABASE_CONFIG.url}/rest/v1/transactions?or=(id.like.${encodeURIComponent(currentShopId)}_*,raw_json->>shop_id.eq.${encodeURIComponent(currentShopId)})&select=*&order=created_at.desc&limit=150`),
-                safeFetchJson(`${SUPABASE_CONFIG.url}/rest/v1/treasury_audit?or=(id.like.*${encodeURIComponent(currentShopId)}*,id.like.${encodeURIComponent(currentShopId)}_*)&select=*&order=date.desc&limit=100`)
+                fetchSupabasePaged(prodBaseUrl, { pageSize: 1000, maxPages: 50 }),
+                fetchSupabasePaged(txBaseUrl, { pageSize: 500, maxPages: useDelta ? 10 : 20 }),
+                fetchSupabasePaged(auditBaseUrl, { pageSize: 500, maxPages: 10 })
             ]);
 
             // 0. مزامنة بيانات المتجر التلقائية (Store Profile Sync)
@@ -620,7 +673,6 @@
             }
 
             // 1. معالجة وتوحيد الفواتير مع الاكتشاف الذكي لمعرف المحل
-            // تجميع كل الفواتير الملغاة لحظرها وتصفيتها فوراً من الذاكرة والعرض
             const voidedInvIds = new Set();
             if (Array.isArray(cRes) && cRes.length > 0) {
                 cRes.forEach(r => {
@@ -647,7 +699,7 @@
                     return rowShopId === currentShopId;
                 });
 
-                State.transactions = myTxs.map(row => {
+                const mappedTxs = myTxs.map(row => {
                     const raw = row.raw_json || {};
                     const fallbackDate = row.created_at ? parseDateToISO(row.created_at) : getTodayISO();
                     const txDate = row.date_iso || raw.dateISO || raw.date || fallbackDate;
@@ -658,12 +710,15 @@
                     const cleanInvId = String(row.invoice_id || raw.invoiceId || row.id || '').replace(`${currentShopId}_`, '');
 
                     return {
+                        ...raw,
                         id: String(row.id || raw.id || Math.random().toString(36).substring(2, 9)),
                         invoiceId: cleanInvId,
                         dateISO: parsedDateISO,
+                        date: parsedDateISO,
                         timeISO: txTime,
                         type: row.type || raw.type || 'مبيعات',
                         partner: row.partner || raw.partner || 'عميل نقدي',
+                        customer_name: row.partner || raw.partner || 'عميل نقدي',
                         total: totVal,
                         invoiceGrandTotal: totVal,
                         paidAmount: paidVal,
@@ -671,15 +726,26 @@
                         method: row.method || raw.method || 'كاش',
                         cashier: row.cashier || raw.cashier || 'المدير',
                         items: Array.isArray(raw.items) ? raw.items : [],
-                        isInvoiceHead: (raw.isInvoiceHead !== undefined ? Boolean(raw.isInvoiceHead) : true),
-                        ...raw
+                        isInvoiceHead: (raw.isInvoiceHead !== undefined ? Boolean(raw.isInvoiceHead) : true)
                     };
                 });
-                try { localStorage.setItem(CONFIG.STORAGE_PREFIX + 'transactions', JSON.stringify(State.transactions)); } catch (e) { }
+
+                if (useDelta) {
+                    if (mappedTxs.length > 0) {
+                        const txMap = new Map();
+                        State.transactions.forEach(t => { if (t) txMap.set(String(t.id || t.invoiceId), t); });
+                        mappedTxs.forEach(t => { txMap.set(String(t.id || t.invoiceId), t); });
+                        State.transactions = Array.from(txMap.values()).sort((a, b) => String(b.dateISO || '').localeCompare(String(a.dateISO || '')));
+                        persistInvoicesToIDB(mappedTxs, false);
+                    }
+                } else {
+                    State.transactions = mappedTxs;
+                    persistInvoicesToIDB(State.transactions, true);
+                }
             }
 
             // 2. استخراج قائمة المخازن الحقيقية المعتمدة المسجلة على اللابتوب
-            let detectedWhList = [];
+            let detectedWhList = Array.isArray(State.warehouses) ? State.warehouses.slice() : [];
             if (Array.isArray(cRes) && cRes.length > 0) {
                 const whRow = cRes.find(r => r.id === `CONFIG_WAREHOUSES_LIST_${currentShopId}`);
                 if (whRow && whRow.raw_json && Array.isArray(whRow.raw_json.warehouses)) {
@@ -728,7 +794,7 @@
                 localStorage.setItem('bayan_mob_active_warehouse', State.activeWarehouse);
             }
 
-            // 3. معالجة وتوحيد الأصناف وحساب رصيد المخزن النشط بدقة
+            // 3. معالجة وتوحيد الأصناف وحساب رصيد المخزن النشط بدقة (Delta Merge أو Full Replace)
             if (Array.isArray(pRes)) {
                 let myProds = pRes.filter(row => {
                     const raw = row.raw_json || {};
@@ -738,12 +804,11 @@
 
                 const curWH = State.activeWarehouse || 'المخزن الرئيسي';
 
-                State.products = myProds.map(row => {
+                const mappedProds = myProds.map(row => {
                     const raw = row.raw_json || {};
                     const whStocks = (raw.warehouseStocks && typeof raw.warehouseStocks === 'object') ? raw.warehouseStocks : {};
                     const localProdId = raw.localId || raw.id || row.id.replace(`${currentShopId}_PROD_`, '');
 
-                    // حساب رصيد الصنف الإجمالي في هذا المخزن النشط بالذات
                     let totalStockInWH = 0;
                     if (whStocks[curWH] !== undefined) {
                         totalStockInWH = parseFloat(whStocks[curWH]) || 0;
@@ -771,9 +836,11 @@
                     });
 
                     return {
+                        ...raw,
                         id: String(localProdId),
                         name: row.name || raw.name || 'صنف',
                         barcode: row.barcode || raw.barcode || '',
+                        code: raw.code || row.barcode || raw.barcode || '',
                         category: row.category || raw.category || 'عام',
                         price: parseFloat(row.price !== undefined ? row.price : (raw.price || 0)),
                         cost: parseFloat(row.cost !== undefined ? row.cost : (raw.cost || 0)),
@@ -782,14 +849,26 @@
                         stock: totalStockInWH,
                         variants: variantsList,
                         warehouseStocks: whStocks,
-                        ...raw,
-                        id: String(localProdId)
+                        updated_at: row.updated_at || raw.updatedAt || syncStartedISO
                     };
                 });
-                safelyPersistProducts(State.products);
+
+                if (useDelta) {
+                    if (mappedProds.length > 0) {
+                        const prodMap = new Map();
+                        State.products.forEach(p => { if (p) prodMap.set(String(p.id), p); });
+                        mappedProds.forEach(p => { prodMap.set(String(p.id), p); });
+                        State.products = Array.from(prodMap.values());
+                        window.allProducts = State.products;
+                        safelyPersistProducts(mappedProds, false);
+                    }
+                } else {
+                    State.products = mappedProds;
+                    safelyPersistProducts(State.products, true);
+                }
             }
 
-            // 4. استقبال قائمة الحسابات والعملاء الخاصة بهذا المحل من السحابة
+            // 4. استقبال قائمة الحسابات والعملاء الخاصة بهذا المحل من السحابة وتخزينها بـ idbBulkPut
             if (Array.isArray(cRes) && cRes.length > 0) {
                 const shopRow = cRes.find(r => r.id === `CONFIG_CUSTOMERS_LIST_${currentShopId}`);
                 if (shopRow && shopRow.raw_json) {
@@ -797,11 +876,15 @@
                     const accs = Array.isArray(rawObj.accounts) ? rawObj.accounts : (Array.isArray(rawObj.customers) ? rawObj.customers : []);
                     State.accounts = accs;
                     State.customers = accs;
-                    try {
-                        localStorage.setItem(CONFIG.STORAGE_PREFIX + 'accounts', JSON.stringify(State.accounts));
-                        localStorage.setItem(CONFIG.STORAGE_PREFIX + 'customers', JSON.stringify(State.customers));
-                    } catch (e) { }
+                    persistCustomersToIDB(State.customers, State.accounts, true);
                 }
+            }
+
+            // 5. تحديث ختم آخر مزامنة بنجاح لدعم Delta Sync في المرات القادمة
+            State.lastSyncAt = syncStartedISO;
+            try { localStorage.setItem(syncStorageKey, syncStartedISO); } catch (e) { }
+            if (window.BayanIDB && typeof window.BayanIDB.idbSet === 'function') {
+                window.BayanIDB.idbSet('settings', syncStartedISO, 'last_sync_at_' + currentShopId);
             }
 
             updateConnectionStatus(true);
@@ -810,23 +893,7 @@
         } catch (e) {
             console.warn('[SupabaseMobile] Pull data error:', e);
             updateConnectionStatus(false, navigator.onLine ? 'تعذر مزامنة السحابة (جاري المحاولة)' : 'أوفلاين (يعمل محلياً)');
-            const cachedP = localStorage.getItem(CONFIG.STORAGE_PREFIX + 'products');
-            const cachedT = localStorage.getItem(CONFIG.STORAGE_PREFIX + 'transactions');
-            const cachedC = localStorage.getItem(CONFIG.STORAGE_PREFIX + 'customers');
-            const cachedA = localStorage.getItem(CONFIG.STORAGE_PREFIX + 'accounts');
-            if (cachedP) {
-                try {
-                    State.products = JSON.parse(cachedP);
-                    window.allProducts = State.products;
-                } catch (e) { }
-            }
-            if (cachedT) { try { State.transactions = JSON.parse(cachedT); } catch (e) { } }
-            if (cachedC) { try { State.customers = JSON.parse(cachedC); } catch (e) { } }
-            if (cachedA) {
-                try { State.accounts = JSON.parse(cachedA); } catch (e) { }
-            } else if (cachedC) {
-                State.accounts = State.customers;
-            }
+            await hydrateStateFromIDB();
             renderCurrentView();
         }
     }
@@ -1107,71 +1174,74 @@
         };
     }
 
-    // مزامنة فواتير ومعاملات فترة زمنية محددة من سحابة Supabase
+    // مزامنة فواتير ومعاملات فترة زمنية محددة من سحابة Supabase بتقسيم صفحات حقيقي (.range)
     async function syncPeriodTransactionsFromCloud(startISO, endISO) {
         if (!startISO || !endISO || !navigator.onLine) return;
         const currentShopId = State.shopId || CONFIG.SHOP_ID || '';
         if (!isValidPairedShop(currentShopId)) return;
 
         try {
-            let url = `${SUPABASE_CONFIG.url}/rest/v1/transactions?select=*&order=created_at.desc&limit=300`;
+            let url = `${SUPABASE_CONFIG.url}/rest/v1/transactions?select=*&order=created_at.desc`;
             url += `&or=(id.like.${encodeURIComponent(currentShopId)}_*,raw_json->>shop_id.eq.${encodeURIComponent(currentShopId)})`;
             url += `&or=(and(date_iso.gte.${startISO},date_iso.lte.${endISO}),and(created_at.gte.${startISO}T00:00:00Z,created_at.lte.${endISO}T23:59:59Z))`;
 
-            const res = await fetch(url, { headers: getSupabaseHeaders() });
-            if (res.ok) {
-                const rows = await res.json();
-                if (Array.isArray(rows) && rows.length > 0) {
-                    const shopRows = rows.filter(r => {
-                        const raw = r.raw_json || {};
-                        const rowShopId = raw.shop_id || (r.id && r.id.startsWith(currentShopId + '_') ? currentShopId : null);
-                        return rowShopId === currentShopId;
-                    });
+            const rows = await fetchSupabasePaged(url, { pageSize: 500, maxPages: 40 });
+            if (Array.isArray(rows) && rows.length > 0) {
+                const shopRows = rows.filter(r => {
+                    const raw = r.raw_json || {};
+                    const rowShopId = raw.shop_id || (r.id && r.id.startsWith(currentShopId + '_') ? currentShopId : null);
+                    return rowShopId === currentShopId;
+                });
 
-                    const mapped = shopRows.map(row => {
-                        const raw = row.raw_json || {};
-                        const fallbackDate = row.created_at ? parseDateToISO(row.created_at) : getTodayISO();
-                        const txDate = row.date_iso || raw.dateISO || raw.date || fallbackDate;
-                        const parsedDateISO = parseDateToISO(txDate) || fallbackDate;
-                        const txTime = row.time || raw.time || (row.created_at ? new Date(row.created_at).toTimeString().slice(0, 5) : '12:00');
-                        const totVal = parseFloat(row.total !== undefined ? row.total : (raw.total !== undefined ? raw.total : (raw.invoiceGrandTotal || 0))) || 0;
-                        const paidVal = parseFloat(row.paid_amount !== undefined ? row.paid_amount : (raw.paidAmount !== undefined ? raw.paidAmount : (raw.paid || totVal))) || 0;
-                        const cleanInvId = String(row.invoice_id || raw.invoiceId || row.id || '').replace(`${currentShopId}_`, '');
+                const mapped = shopRows.map(row => {
+                    const raw = row.raw_json || {};
+                    const fallbackDate = row.created_at ? parseDateToISO(row.created_at) : getTodayISO();
+                    const txDate = row.date_iso || raw.dateISO || raw.date || fallbackDate;
+                    const parsedDateISO = parseDateToISO(txDate) || fallbackDate;
+                    const txTime = row.time || raw.time || (row.created_at ? new Date(row.created_at).toTimeString().slice(0, 5) : '12:00');
+                    const totVal = parseFloat(row.total !== undefined ? row.total : (raw.total !== undefined ? raw.total : (raw.invoiceGrandTotal || 0))) || 0;
+                    const paidVal = parseFloat(row.paid_amount !== undefined ? row.paid_amount : (raw.paidAmount !== undefined ? raw.paidAmount : (raw.paid || totVal))) || 0;
+                    const cleanInvId = String(row.invoice_id || raw.invoiceId || row.id || '').replace(`${currentShopId}_`, '');
 
-                        return {
-                            id: String(row.id || raw.id),
-                            invoiceId: cleanInvId,
-                            dateISO: parsedDateISO,
-                            timeISO: txTime,
-                            type: row.type || raw.type || 'مبيعات',
-                            partner: row.partner || raw.partner || 'عميل نقدي',
-                            total: totVal,
-                            invoiceGrandTotal: totVal,
-                            paidAmount: paidVal,
-                            remaining: parseFloat(row.remaining !== undefined ? row.remaining : (raw.remaining || 0)) || 0,
-                            method: row.method || raw.method || 'كاش',
-                            cashier: row.cashier || raw.cashier || 'المدير',
-                            items: Array.isArray(raw.items) ? raw.items : [],
-                            isInvoiceHead: (raw.isInvoiceHead !== undefined ? Boolean(raw.isInvoiceHead) : true),
-                            ...raw
-                        };
-                    });
+                    return {
+                        ...raw,
+                        id: String(row.id || raw.id),
+                        invoiceId: cleanInvId,
+                        dateISO: parsedDateISO,
+                        date: parsedDateISO,
+                        timeISO: txTime,
+                        type: row.type || raw.type || 'مبيعات',
+                        partner: row.partner || raw.partner || 'عميل نقدي',
+                        customer_name: row.partner || raw.partner || 'عميل نقدي',
+                        total: totVal,
+                        invoiceGrandTotal: totVal,
+                        paidAmount: paidVal,
+                        remaining: parseFloat(row.remaining !== undefined ? row.remaining : (raw.remaining || 0)) || 0,
+                        method: row.method || raw.method || 'كاش',
+                        cashier: row.cashier || raw.cashier || 'المدير',
+                        items: Array.isArray(raw.items) ? raw.items : [],
+                        isInvoiceHead: (raw.isInvoiceHead !== undefined ? Boolean(raw.isInvoiceHead) : true)
+                    };
+                });
 
-                    const existingIds = new Set(State.transactions.map(t => String(t.invoiceId || t.id)));
-                    let newCount = 0;
-                    mapped.forEach(m => {
-                        const key = String(m.invoiceId || m.id);
-                        if (!existingIds.has(key)) {
-                            State.transactions.push(m);
-                            existingIds.add(key);
-                            newCount++;
-                        }
-                    });
-
-                    if (newCount > 0) {
-                        try { localStorage.setItem(CONFIG.STORAGE_PREFIX + 'transactions', JSON.stringify(State.transactions)); } catch (e) { }
-                        renderDashboard();
+                const existingIds = new Set(State.transactions.map(t => String(t.invoiceId || t.id)));
+                const newlyAdded = [];
+                let newCount = 0;
+                mapped.forEach(m => {
+                    const key = String(m.invoiceId || m.id);
+                    if (!existingIds.has(key)) {
+                        State.transactions.push(m);
+                        newlyAdded.push(m);
+                        existingIds.add(key);
+                        newCount++;
                     }
+                });
+                if (newlyAdded.length > 0) {
+                    persistInvoicesToIDB(newlyAdded, false);
+                }
+
+                if (newCount > 0) {
+                    renderDashboard();
                 }
             }
         } catch (err) {
@@ -1607,7 +1677,11 @@
             return;
         }
 
-        listEl.innerHTML = filtered.slice(0, 30).map(p => {
+        const renderLimit = State.productsRenderLimit || 30;
+        const visibleProducts = filtered.slice(0, renderLimit);
+        const remainingCount = filtered.length - visibleProducts.length;
+
+        let cardsHtml = visibleProducts.map(p => {
             const price = parseFloat(p.price || p.salePrice || 0).toLocaleString('ar-EG');
             const totalStock = parseFloat(p.quantity !== undefined ? p.quantity : (p.stock || 0));
             const stockStatus = totalStock <= 0 ? 'out-of-stock' : (totalStock <= 3 ? 'low-stock' : 'in-stock');
@@ -1684,6 +1758,24 @@
                 </div>
             `;
         }).join('');
+
+        if (remainingCount > 0) {
+            const nextBatch = Math.min(30, remainingCount);
+            cardsHtml += `
+                <div style="text-align: center; padding: 14px 10px 24px;">
+                    <button type="button" id="btnLoadMoreProducts" onclick="window.BayanMobile.loadMoreProducts()" style="width: 100%; max-width: 340px; padding: 12px 18px; border-radius: 14px; border: 1.5px solid var(--emerald, #059669); background: linear-gradient(135deg, #059669, #047857); color: #ffffff; font-size: 0.9rem; font-weight: 800; cursor: pointer; box-shadow: 0 4px 12px rgba(5, 150, 105, 0.25);">
+                        ⬇️ تحميل المزيد (${nextBatch} من أصل ${remainingCount} صنف متبقي)
+                    </button>
+                </div>
+            `;
+        }
+
+        listEl.innerHTML = cardsHtml;
+    }
+
+    function loadMoreProducts() {
+        State.productsRenderLimit = (State.productsRenderLimit || 30) + 30;
+        renderProducts();
     }
 
     function getVariantStock(product, size = '', color = '') {
@@ -2618,34 +2710,62 @@
         isProcessingOfflineQueue = true;
         const remainingQueue = [];
         let successCount = 0;
+        const CHUNK_SIZE = 100;
 
-        for (const item of queue) {
+        // ⚡ تجميع الدفعات (Batch Upsert) لمنع مشكلة N+1 عند وجود عشرات الفواتير المعلقة
+        for (let i = 0; i < queue.length; i += CHUNK_SIZE) {
+            const chunk = queue.slice(i, i + CHUNK_SIZE);
+            const txMap = new Map();
+            const prodMap = new Map();
+            const custMap = new Map();
+
+            for (const item of chunk) {
+                if (Array.isArray(item.txPayload)) {
+                    item.txPayload.forEach(r => { if (r && r.id) txMap.set(String(r.id), r); });
+                }
+                if (Array.isArray(item.prodBatch)) {
+                    item.prodBatch.forEach(r => { if (r && r.id) prodMap.set(String(r.id), r); });
+                }
+                if (Array.isArray(item.custPayload)) {
+                    item.custPayload.forEach(r => { if (r && r.id) custMap.set(String(r.id), r); });
+                }
+            }
+
             try {
-                if (item.txPayload && Array.isArray(item.txPayload) && item.txPayload.length > 0) {
-                    await fetch(`${SUPABASE_CONFIG.url}/rest/v1/transactions?on_conflict=id`, {
+                const txList = Array.from(txMap.values());
+                if (txList.length > 0) {
+                    const txRes = await fetch(`${SUPABASE_CONFIG.url}/rest/v1/transactions?on_conflict=id`, {
                         method: 'POST',
                         headers: getSupabaseHeaders(),
-                        body: JSON.stringify(item.txPayload)
+                        body: JSON.stringify(txList)
                     });
+                    if (!txRes.ok && txRes.status !== 200 && txRes.status !== 201) {
+                        throw new Error(`Batch transactions HTTP ${txRes.status}`);
+                    }
                 }
-                if (item.prodBatch && Array.isArray(item.prodBatch) && item.prodBatch.length > 0) {
+
+                const prodList = Array.from(prodMap.values());
+                if (prodList.length > 0) {
                     await fetch(`${SUPABASE_CONFIG.url}/rest/v1/products?on_conflict=id`, {
                         method: 'POST',
                         headers: getSupabaseHeaders(),
-                        body: JSON.stringify(item.prodBatch)
+                        body: JSON.stringify(prodList)
                     });
                 }
-                if (item.custPayload && Array.isArray(item.custPayload) && item.custPayload.length > 0) {
+
+                const custList = Array.from(custMap.values());
+                if (custList.length > 0) {
                     await fetch(`${SUPABASE_CONFIG.url}/rest/v1/treasury_audit?on_conflict=id`, {
                         method: 'POST',
                         headers: getSupabaseHeaders(),
-                        body: JSON.stringify(item.custPayload)
+                        body: JSON.stringify(custList)
                     }).catch(() => { });
                 }
-                successCount++;
+
+                successCount += chunk.length;
             } catch (err) {
-                console.warn('[OfflineQueue] Retry failed for invoice:', item.id, err);
-                remainingQueue.push(item);
+                console.warn('[OfflineQueue] Batch retry failed:', err);
+                remainingQueue.push(...chunk);
             }
         }
 
@@ -4262,9 +4382,9 @@ ${footer || 'شكراً لتعاملكم الراقي معنا! ✨'}`;
     }
 
     async function forceFullSync() {
-        showToast('جاري تحديث كافة الأصناف والحسابات والمعاملات... ⏳', 'warning');
+        showToast('جاري إجراء مزامنة شاملة لكافة الأصناف والحسابات والمعاملات... ⏳', 'warning');
         await processOfflineQueue();
-        await pullMasterData();
+        await pullMasterData(true, { forceFull: true });
         renderSettingsView();
         renderDashboard();
         showToast('تمت المزامنة الشاملة وتحديث الذاكرة بنجاح! 🚀', 'success');
@@ -5736,6 +5856,9 @@ ${footer || 'شكراً لتعاملكم الراقي معنا! ✨'}`;
     // 🚀 INITIALIZATION
     // ============================================================
     async function init() {
+        // ⚡ استرجاع البيانات المفهرسة محلياً من IndexedDB v2 فوراً لفتح سريع وتفعيل Delta Sync
+        await hydrateStateFromIDB();
+
         // تطبيق فوري لبيانات المتجر المخزنة محلياً على الهيدر والإعدادات فور بدء التشغيل
         applyStoreProfileToUI();
 
@@ -5747,6 +5870,7 @@ ${footer || 'شكراً لتعاملكم الراقي معنا! ✨'}`;
             searchInput.addEventListener('input', (e) => {
                 const val = e.target.value;
                 State.searchQuery = val;
+                State.productsRenderLimit = 30;
                 if (clearBtn) {
                     clearBtn.style.display = val.trim() ? 'flex' : 'none';
                 }
@@ -5838,7 +5962,8 @@ ${footer || 'شكراً لتعاملكم الراقي معنا! ✨'}`;
     // Public API
     window.BayanMobile = {
         switchTab,
-        setCategory: (cat) => { State.selectedCategory = cat; updateCategoriesList(); renderProducts(); },
+        setCategory: (cat) => { State.selectedCategory = cat; State.productsRenderLimit = 30; updateCategoriesList(); renderProducts(); },
+        loadMoreProducts,
         openAddToCartModal,
         closeAddToCartModal,
         quickAddVariant: (productId, size = '', color = '') => {

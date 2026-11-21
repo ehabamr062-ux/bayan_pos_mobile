@@ -1,4 +1,4 @@
-const CACHE_NAME = 'bayan-mobile-v5.1.45';
+const CACHE_NAME = 'bayan-mobile-v5.1.46';
 const STATIC_ASSETS = [
   './',
   './index.html',

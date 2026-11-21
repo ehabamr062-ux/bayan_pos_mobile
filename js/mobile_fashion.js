@@ -621,6 +621,47 @@
         return allRows;
     }
 
+    // ✨ شاشات التحميل الهيكلية الانسيابية (Skeleton Loaders) للأصناف والفواتير
+    function renderProductsSkeleton(count = 5) {
+        const listEl = document.getElementById('productsList');
+        if (!listEl) return;
+        let html = '';
+        for (let i = 0; i < count; i++) {
+            html += `
+                <div class="bayan-skel-card">
+                    <div style="display:flex; gap:12px; align-items:center;">
+                        <span class="bayan-skeleton" style="width:56px; height:56px; border-radius:12px; flex-shrink:0;"></span>
+                        <div style="flex:1; display:flex; flex-direction:column; gap:8px;">
+                            <span class="bayan-skeleton" style="width:68%; height:15px;"></span>
+                            <span class="bayan-skeleton" style="width:45%; height:11px;"></span>
+                        </div>
+                        <span class="bayan-skeleton" style="width:60px; height:24px; border-radius:10px;"></span>
+                    </div>
+                    <span class="bayan-skeleton" style="width:92%; height:12px;"></span>
+                </div>
+            `;
+        }
+        listEl.innerHTML = html;
+    }
+
+    function renderDashboardSkeleton(count = 4) {
+        const listEl = document.getElementById('recentActivityList');
+        if (!listEl) return;
+        let html = '';
+        for (let i = 0; i < count; i++) {
+            html += `
+                <div class="bayan-skel-card">
+                    <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
+                        <span class="bayan-skeleton" style="width:48%; height:14px;"></span>
+                        <span class="bayan-skeleton" style="width:26%; height:16px;"></span>
+                    </div>
+                    <span class="bayan-skeleton" style="width:74%; height:11px;"></span>
+                </div>
+            `;
+        }
+        listEl.innerHTML = html;
+    }
+
     async function pullMasterData(showIndicator = true, options = {}) {
         try {
             const forceFull = Boolean(options && options.forceFull);
@@ -635,6 +676,10 @@
                 if (showIndicator) openPinModal();
                 return;
             }
+
+            // ✨ عرض Skeleton Loaders فوراً إذا كانت القوائم فارغة أثناء انتظار رد السحابة
+            if (showIndicator && State.products.length === 0) renderProductsSkeleton(5);
+            if (showIndicator && State.transactions.length === 0) renderDashboardSkeleton(4);
 
             State.shopId = currentShopId;
             CONFIG.SHOP_ID = currentShopId;
@@ -1180,6 +1225,7 @@
         const currentShopId = State.shopId || CONFIG.SHOP_ID || '';
         if (!isValidPairedShop(currentShopId)) return;
 
+        renderDashboardSkeleton(4);
         try {
             let url = `${SUPABASE_CONFIG.url}/rest/v1/transactions?select=*&order=created_at.desc`;
             url += `&or=(id.like.${encodeURIComponent(currentShopId)}_*,raw_json->>shop_id.eq.${encodeURIComponent(currentShopId)})`;
@@ -1239,13 +1285,11 @@
                 if (newlyAdded.length > 0) {
                     persistInvoicesToIDB(newlyAdded, false);
                 }
-
-                if (newCount > 0) {
-                    renderDashboard();
-                }
             }
         } catch (err) {
             console.warn('[SyncPeriod] Error:', err);
+        } finally {
+            renderDashboard();
         }
     }
 
@@ -1719,7 +1763,7 @@
             const hasThumb = Boolean(p.image);
             const headHtml = hasThumb ? `
                 <div class="product-head-with-thumb">
-                    <img src="${p.image}" class="product-card-img-thumb" alt="${p.name || ''}" loading="lazy" onerror="this.style.display='none'">
+                    <img src="${p.image}" class="product-card-img-thumb" alt="${p.name || ''}" loading="lazy" decoding="async" onerror="this.style.display='none'">
                     <div style="flex: 1; min-width: 0;">
                         <div class="product-title">${p.name || 'صنف بدون اسم'}</div>
                         <div class="product-barcode-row" style="margin: 2px 0 0 0;">
@@ -3491,7 +3535,7 @@
             const img = new Image();
             img.onload = function () {
                 const canvas = document.createElement('canvas');
-                const maxDim = 600;
+                const maxDim = 800;
                 let w = img.width;
                 let h = img.height;
 
@@ -3508,10 +3552,15 @@
                 canvas.width = w;
                 canvas.height = h;
                 const ctx = canvas.getContext('2d');
+                ctx.imageSmoothingEnabled = true;
+                ctx.imageSmoothingQuality = 'high';
                 ctx.drawImage(img, 0, 0, w, h);
 
-                // ضغط الصورة إلى صيغة JPEG بجودة 0.8 لتكون خفيفة جداً (~30-50KB)
-                const compressed = canvas.toDataURL('image/jpeg', 0.8);
+                // ضغط الصورة تلقائياً إلى WebP بجودة 0.78 (أخف بـ 35-50% من JPEG) مع احتياطي JPEG
+                let compressed = canvas.toDataURL('image/webp', 0.78);
+                if (!compressed || !compressed.startsWith('data:image/webp')) {
+                    compressed = canvas.toDataURL('image/jpeg', 0.78);
+                }
                 State.newProductImageBase64 = compressed;
 
                 const preview = document.getElementById('newProdImagePreview');
